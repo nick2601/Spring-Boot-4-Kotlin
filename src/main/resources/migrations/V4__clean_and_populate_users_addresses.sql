@@ -1,0 +1,118 @@
+-- Clean and populate users and addresses tables with proper sample data
+
+-- First, clean existing data (respects foreign key constraints)
+DELETE FROM wishlist;
+DELETE FROM profiles;
+DELETE FROM addresses;
+DELETE FROM users;
+
+-- Reset auto_increment counters
+ALTER TABLE users AUTO_INCREMENT = 1;
+ALTER TABLE addresses AUTO_INCREMENT = 1;
+
+-- Insert sample users with realistic data
+INSERT INTO users (name, email, password) VALUES
+-- Regular customers
+('John Smith', 'john.smith@email.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'), -- password: password123
+('Emily Johnson', 'emily.johnson@email.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+('Michael Davis', 'michael.davis@email.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+('Sarah Williams', 'sarah.williams@email.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+('David Brown', 'david.brown@email.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+
+-- Business customers
+('Jennifer Martinez', 'jennifer.martinez@company.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+('Robert Taylor', 'robert.taylor@enterprise.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+('Lisa Anderson', 'lisa.anderson@business.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+
+-- International customers
+('James Wilson', 'james.wilson@global.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+('Maria Garcia', 'maria.garcia@mail.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+
+-- Premium customers
+('Christopher Lee', 'christopher.lee@premium.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+('Amanda White', 'amanda.white@vip.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+
+-- Young professionals
+('Daniel Harris', 'daniel.harris@tech.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+('Jessica Clark', 'jessica.clark@startup.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+('Matthew Lewis', 'matthew.lewis@dev.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG');
+
+-- Insert addresses for users (multiple addresses per user for some)
+INSERT INTO addresses (street, city, state, zip, user_id) VALUES
+-- John Smith (User 1) - 2 addresses
+('123 Main Street', 'New York', 'NY', '10001', 1),
+('456 Park Avenue', 'New York', 'NY', '10002', 1),
+
+-- Emily Johnson (User 2)
+('789 Oak Drive', 'Los Angeles', 'CA', '90001', 2),
+
+-- Michael Davis (User 3) - 2 addresses
+('321 Elm Street', 'Chicago', 'IL', '60601', 3),
+('654 Maple Avenue', 'Chicago', 'IL', '60602', 3),
+
+-- Sarah Williams (User 4)
+('987 Pine Road', 'Houston', 'TX', '77001', 4),
+
+-- David Brown (User 5)
+('147 Cedar Lane', 'Phoenix', 'AZ', '85001', 5),
+
+-- Jennifer Martinez (User 6) - Business address
+('258 Business Parkway', 'Philadelphia', 'PA', '19101', 6),
+
+-- Robert Taylor (User 7) - 2 addresses (home + office)
+('369 Corporate Drive', 'San Antonio', 'TX', '78201', 7),
+('741 Residential Court', 'San Antonio', 'TX', '78202', 7),
+
+-- Lisa Anderson (User 8)
+('852 Commerce Street', 'San Diego', 'CA', '92101', 8),
+
+-- James Wilson (User 9)
+('963 International Blvd', 'Dallas', 'TX', '75201', 9),
+
+-- Maria Garcia (User 10)
+('159 Sunset Boulevard', 'San Jose', 'CA', '95101', 10),
+
+-- Christopher Lee (User 11) - Premium with 3 addresses
+('753 Luxury Lane', 'Austin', 'TX', '78701', 11),
+('486 Villa Drive', 'Austin', 'TX', '78702', 11),
+('951 Estate Road', 'Austin', 'TX', '78703', 11),
+
+-- Amanda White (User 12) - 2 addresses
+('357 VIP Circle', 'Jacksonville', 'FL', '32201', 12),
+('642 Exclusive Way', 'Jacksonville', 'FL', '32202', 12),
+
+-- Daniel Harris (User 13)
+('159 Tech Avenue', 'San Francisco', 'CA', '94101', 13),
+
+-- Jessica Clark (User 14)
+('753 Startup Street', 'Columbus', 'OH', '43201', 14),
+
+-- Matthew Lewis (User 15)
+('951 Developer Drive', 'Fort Worth', 'TX', '76101', 15);
+
+-- Insert profiles for users with bio, phone, date of birth, and loyalty points
+INSERT INTO profiles (id, bio, phone_number, date_of_birth, loyalty_points) VALUES
+-- Regular customers
+(1, 'Tech enthusiast and avid reader. Love exploring new gadgets and staying updated with latest technology trends.', '555-0101', '1985-03-15', 1250),
+(2, 'Fitness coach and nutrition expert. Passionate about healthy living and outdoor activities.', '555-0102', '1990-07-22', 850),
+(3, 'Software engineer with a passion for clean code and best practices. Coffee addict.', '555-0103', '1988-11-08', 2100),
+(4, 'Marketing professional and social media strategist. Love traveling and photography.', '555-0104', '1992-05-30', 650),
+(5, 'Freelance graphic designer. Art lover and creative thinker.', '555-0105', '1987-09-18', 950),
+
+-- Business customers
+(6, 'Business consultant helping companies optimize their operations. MBA from top business school.', '555-0106', '1983-12-25', 3200),
+(7, 'Enterprise solutions architect with 15+ years experience. Leading digital transformation projects.', '555-0107', '1980-04-12', 4500),
+(8, 'E-commerce business owner. Building sustainable online businesses.', '555-0108', '1989-08-07', 2800),
+
+-- International customers
+(9, 'International trade specialist. Frequent traveler and language enthusiast.', '555-0109', '1986-06-14', 1800),
+(10, 'Bilingual educator and cultural ambassador. Love connecting people across borders.', '555-0110', '1991-10-03', 1100),
+
+-- Premium customers
+(11, 'Investor and entrepreneur. Founder of multiple successful startups. Tech innovation advocate.', '555-0111', '1978-02-28', 8500),
+(12, 'Luxury lifestyle blogger and influencer. Passionate about premium experiences and exclusive products.', '555-0112', '1984-07-19', 7200),
+
+-- Young professionals
+(13, 'Full-stack developer specializing in modern web technologies. Open source contributor.', '555-0113', '1995-01-11', 550),
+(14, 'Startup founder working on innovative SaaS solutions. Always learning and growing.', '555-0114', '1994-09-23', 720),
+(15, 'DevOps engineer passionate about automation and cloud infrastructure. Kubernetes expert.', '555-0115', '1993-03-05', 890);
