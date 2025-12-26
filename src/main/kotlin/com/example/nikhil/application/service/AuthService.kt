@@ -8,6 +8,7 @@ import com.example.nikhil.infrastructure.persistence.repository.UserRepository
 import com.example.nikhil.infrastructure.security.JwtTokenUtil
 import com.example.nikhil.infrastructure.web.dto.AuthRequest
 import com.example.nikhil.infrastructure.web.dto.AuthResponse
+import com.example.nikhil.infrastructure.security.TokenPair
 import com.example.nikhil.infrastructure.web.dto.UserDto
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -65,12 +66,16 @@ class AuthService(
         val userId = user.id ?: throw InvalidCredentialsException("User ID is null")
         val userName = user.name
 
-        // For future: Add role-based access control
-        // Currently using default USER role, can be extended to fetch from database
-        val roles = listOf("ROLE_USER")
+        // Get roles from database, default to ROLE_CUSTOMER if no roles assigned
+        val roles = if (user.roles.isNotEmpty()) {
+            user.getRoleNames()
+        } else {
+            listOf("ROLE_CUSTOMER")
+        }
 
-        val token = jwtTokenUtil.generateToken(email, userId, userName, roles)
-        logger.info("Login successful for email: ${authRequest.email}, userId: $userId")
+        // Generate both access and refresh tokens
+        val tokenPair = jwtTokenUtil.generateTokenPair(email, userId, userName, roles)
+        logger.info("Login successful for email: ${authRequest.email}, userId: $userId, roles: $roles")
 
         // Publish login event to Kafka
         try {
@@ -88,11 +93,14 @@ class AuthService(
         }
 
         return AuthResponse(
-            token = token,
+            accessToken = tokenPair.accessToken,
+            refreshToken = tokenPair.refreshToken,
             email = email,
             userId = userId,
             name = user.name,
-            roles = roles
+            roles = roles,
+            accessTokenExpiresIn = tokenPair.accessTokenExpiresIn,
+            refreshTokenExpiresIn = tokenPair.refreshTokenExpiresIn
         )
     }
 
@@ -111,7 +119,54 @@ class AuthService(
     }
 
     /**
-     * Refresh JWT token - generates a new token for the user
+     * Refresh JWT tokens using a valid refresh token
+     * @param refreshToken The refresh token
+     * @return New AuthResponse with fresh access and refresh tokens
+     * @throws InvalidCredentialsException if refresh token is invalid or expired
+     */
+    fun refreshTokens(refreshToken: String): AuthResponse {
+        logger.info("Attempting to refresh tokens")
+
+        // Extract email from refresh token
+        val email = jwtTokenUtil.getEmailFromToken(refreshToken)
+            ?: throw InvalidCredentialsException("Invalid refresh token")
+
+        // Validate it's actually a refresh token and not expired
+        if (!jwtTokenUtil.validateRefreshToken(refreshToken, email)) {
+            throw InvalidCredentialsException("Refresh token is invalid or expired")
+        }
+
+        val user = userRepository.findByEmail(email)
+            ?: throw InvalidCredentialsException("User not found")
+
+        val userId = user.id ?: throw InvalidCredentialsException("User ID is null")
+        val userName = user.name
+
+        // Get roles from database, default to ROLE_CUSTOMER if no roles assigned
+        val roles = if (user.roles.isNotEmpty()) {
+            user.getRoleNames()
+        } else {
+            listOf("ROLE_CUSTOMER")
+        }
+
+        // Generate new token pair
+        val tokenPair = jwtTokenUtil.generateTokenPair(email, userId, userName, roles)
+        logger.info("Tokens refreshed successfully for email: $email, roles: $roles")
+
+        return AuthResponse(
+            accessToken = tokenPair.accessToken,
+            refreshToken = tokenPair.refreshToken,
+            email = email,
+            userId = userId,
+            name = userName,
+            roles = roles,
+            accessTokenExpiresIn = tokenPair.accessTokenExpiresIn,
+            refreshTokenExpiresIn = tokenPair.refreshTokenExpiresIn
+        )
+    }
+
+    /**
+     * Legacy method - generates only access token (backward compatibility)
      */
     fun refreshToken(email: String): String {
         logger.info("Refreshing token for email: $email")
@@ -121,9 +176,15 @@ class AuthService(
 
         val userId = user.id ?: throw InvalidCredentialsException("User ID is null")
         val userName = user.name
-        val roles = listOf("ROLE_USER")
 
-        return jwtTokenUtil.generateToken(email, userId, userName, roles)
+        // Get roles from database, default to ROLE_CUSTOMER if no roles assigned
+        val roles = if (user.roles.isNotEmpty()) {
+            user.getRoleNames()
+        } else {
+            listOf("ROLE_CUSTOMER")
+        }
+
+        return jwtTokenUtil.generateAccessToken(email, userId, userName, roles)
     }
 
     /**

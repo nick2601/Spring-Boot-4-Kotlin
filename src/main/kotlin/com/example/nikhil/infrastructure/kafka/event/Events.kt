@@ -41,8 +41,9 @@ data class OrderEvent(
     override val eventType: String = "ORDER_EVENT",
     override val timestamp: LocalDateTime = LocalDateTime.now(),
     val orderId: Long? = null,
+    val orderNumber: String? = null,
     val userId: Long,
-    val cartId: Long,
+    val cartId: Long? = null,
     val action: OrderAction,
     val totalAmount: java.math.BigDecimal? = null,
     val details: Map<String, Any>? = null
@@ -50,6 +51,7 @@ data class OrderEvent(
 
 enum class OrderAction {
     CREATED,
+    UPDATED,
     CONFIRMED,
     SHIPPED,
     DELIVERED,

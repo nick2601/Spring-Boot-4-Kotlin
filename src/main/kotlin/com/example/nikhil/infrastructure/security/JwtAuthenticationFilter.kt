@@ -14,6 +14,7 @@ import org.springframework.web.filter.OncePerRequestFilter
 /**
  * JWT Authentication Filter
  * Validates JWT tokens on each request and sets up Spring Security context
+ * Supports automatic token refresh when token is about to expire
  */
 @Component
 class JwtAuthenticationFilter(
@@ -26,6 +27,8 @@ class JwtAuthenticationFilter(
     companion object {
         private const val BEARER_PREFIX = "Bearer "
         private const val AUTHORIZATION_HEADER = "Authorization"
+        const val NEW_ACCESS_TOKEN_HEADER = "X-New-Access-Token"
+        const val TOKEN_REFRESH_HEADER = "X-Token-Refreshed"
     }
 
     override fun doFilterInternal(
@@ -43,7 +46,10 @@ class JwtAuthenticationFilter(
                 if (email != null && SecurityContextHolder.getContext().authentication == null) {
                     val userDetails = userDetailsService.loadUserByUsername(email)
 
-                    if (jwtTokenUtil.validateToken(token, userDetails.username)) {
+                    // Check if token is valid (and is an access token)
+                    if (jwtTokenUtil.validateToken(token, userDetails.username) &&
+                        jwtTokenUtil.isAccessToken(token)) {
+
                         val authToken = UsernamePasswordAuthenticationToken(
                             userDetails,
                             null,
@@ -53,6 +59,24 @@ class JwtAuthenticationFilter(
                         }
                         SecurityContextHolder.getContext().authentication = authToken
                         log.debug("Authentication successful for user: $email")
+
+                        // Check if token needs refresh (approaching expiry)
+                        if (jwtTokenUtil.needsRefresh(token)) {
+                            val userId = jwtTokenUtil.getUserIdFromToken(token)
+                            val name = jwtTokenUtil.getNameFromToken(token)
+                            val roles = jwtTokenUtil.getRolesFromToken(token)
+
+                            // Generate new access token
+                            val newAccessToken = jwtTokenUtil.generateAccessToken(
+                                email, userId, name, roles
+                            )
+
+                            // Add new token to response header
+                            response.setHeader(NEW_ACCESS_TOKEN_HEADER, newAccessToken)
+                            response.setHeader(TOKEN_REFRESH_HEADER, "true")
+
+                            log.info("Auto-refreshed access token for user: $email")
+                        }
                     }
                 }
             }

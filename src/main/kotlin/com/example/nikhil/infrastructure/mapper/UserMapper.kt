@@ -19,7 +19,10 @@ class UserMapper {
         id = user.id,
         name = user.name,
         email = user.email,
-        datetime = user.datetime
+        datetime = user.datetime,
+        roles = user.getRoleNames(),
+        isAdmin = user.isAdmin(),
+        isCustomer = user.isCustomer()
     )
 
     /**
@@ -30,6 +33,7 @@ class UserMapper {
     /**
      * Convert UserDto to User entity
      * Note: Password should be set separately and encoded
+     * Note: Roles are not set from DTO, use service methods to assign roles
      */
     fun toEntity(userDto: UserDto) = User(
         id = userDto.id,

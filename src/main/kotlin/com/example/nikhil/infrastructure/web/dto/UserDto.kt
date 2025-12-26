@@ -20,5 +20,11 @@ data class UserDto(
     @field:Size(min = 6, max = 100, message = "Password must be between 6 and 100 characters")
     val password: String? = null,
 
-    val datetime: LocalDateTime? = null
+    val datetime: LocalDateTime? = null,
+
+    val roles: List<String> = emptyList(),
+
+    val isAdmin: Boolean = false,
+
+    val isCustomer: Boolean = false
 )

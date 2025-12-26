@@ -85,9 +85,9 @@ INSERT INTO products (name, price, description, category_id) VALUES
 ('Seresto Flea Collar for Dogs', 59.99, '8-month protection flea and tick collar', 10);
 
 -- =====================================================
--- ADD MORE USERS
+-- ADD MORE USERS (using INSERT IGNORE to skip duplicates)
 -- =====================================================
-INSERT INTO users (name, email, password) VALUES
+INSERT IGNORE INTO users (name, email, password) VALUES
 -- Tech professionals
 ('Alex Thompson', 'alex.thompson@techcorp.com', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),
 ('Sophia Chen', 'sophia.chen@innovate.io', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),

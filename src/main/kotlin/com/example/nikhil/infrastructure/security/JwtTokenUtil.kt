@@ -4,7 +4,6 @@ import io.jsonwebtoken.Claims
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.nio.charset.StandardCharsets
 import java.util.*
@@ -13,36 +12,82 @@ import javax.crypto.SecretKey
 /**
  * JWT Token Utility
  * Handles token generation, validation, and parsing
+ * Supports both Access Tokens (short-lived) and Refresh Tokens (long-lived)
+ *
+ * Uses JwtConfig for centralized configuration management
  */
 @Component
 class JwtTokenUtil(
-    @Value("\${jwt.secret:MySecretKeyForJWTTokenGenerationMustBeAtLeast256BitsLongForHS256Algorithm}")
-    private val secret: String,
-
-    @Value("\${jwt.expiration:86400000}")
-    private val expirationTime: Long
+    private val jwtConfig: JwtConfig
 ) {
     private val logger = LoggerFactory.getLogger(JwtTokenUtil::class.java)
 
+    companion object {
+        const val TOKEN_TYPE_ACCESS = "access"
+        const val TOKEN_TYPE_REFRESH = "refresh"
+    }
+
     private val secretKey: SecretKey by lazy {
-        Keys.hmacShaKeyFor(secret.toByteArray(StandardCharsets.UTF_8))
+        Keys.hmacShaKeyFor(jwtConfig.secret.toByteArray(StandardCharsets.UTF_8))
     }
 
     /**
-     * Generate JWT token for the given email (backward compatible)
+     * Generate Access Token for the given email (backward compatible)
      */
     fun generateToken(email: String): String {
-        return generateToken(email, null, null, emptyList())
+        return generateAccessToken(email, null, null, emptyList())
     }
 
     /**
-     * Generate JWT token with enhanced claims
+     * Generate Access Token with enhanced claims
      * @param email User's email (subject)
      * @param userId User's ID
      * @param name User's name
      * @param roles User's roles/authorities
      */
     fun generateToken(email: String, userId: Long?, name: String?, roles: List<String>): String {
+        return generateAccessToken(email, userId, name, roles)
+    }
+
+    /**
+     * Generate Access Token (short-lived, for API requests)
+     */
+    fun generateAccessToken(email: String, userId: Long?, name: String?, roles: List<String>): String {
+        return generateTokenInternal(email, userId, name, roles, TOKEN_TYPE_ACCESS, jwtConfig.accessToken.expiration)
+    }
+
+    /**
+     * Generate Refresh Token (long-lived, for getting new access tokens)
+     */
+    fun generateRefreshToken(email: String, userId: Long?): String {
+        return generateTokenInternal(email, userId, null, emptyList(), TOKEN_TYPE_REFRESH, jwtConfig.refreshToken.expiration)
+    }
+
+    /**
+     * Generate both Access and Refresh tokens
+     */
+    fun generateTokenPair(email: String, userId: Long?, name: String?, roles: List<String>): TokenPair {
+        val accessToken = generateAccessToken(email, userId, name, roles)
+        val refreshToken = generateRefreshToken(email, userId)
+        return TokenPair(
+            accessToken = accessToken,
+            refreshToken = refreshToken,
+            accessTokenExpiresIn = jwtConfig.getAccessTokenExpirationSeconds(),
+            refreshTokenExpiresIn = jwtConfig.getRefreshTokenExpirationSeconds()
+        )
+    }
+
+    /**
+     * Internal method to generate tokens
+     */
+    private fun generateTokenInternal(
+        email: String,
+        userId: Long?,
+        name: String?,
+        roles: List<String>,
+        tokenType: String,
+        expirationTime: Long
+    ): String {
         val now = Date()
         val expiryDate = Date(now.time + expirationTime)
         val tokenId = UUID.randomUUID().toString()
@@ -51,11 +96,12 @@ class JwtTokenUtil(
             .subject(email)
             .issuedAt(now)
             .expiration(expiryDate)
-            .id(tokenId) // jti - JWT ID for token tracking
-            .issuer("learning-spring-rest-api") // iss - token issuer
+            .id(tokenId)
+            .issuer(jwtConfig.issuer)
+            .claim("type", tokenType) // Distinguish access vs refresh token
             .signWith(secretKey)
 
-        // Add custom claims if available
+        // Add custom claims if available (mainly for access tokens)
         userId?.let { builder.claim("userId", it) }
         name?.let { builder.claim("name", it) }
         if (roles.isNotEmpty()) {
@@ -175,6 +221,32 @@ class JwtTokenUtil(
     }
 
     /**
+     * Extract token type (access or refresh)
+     */
+    fun getTokenType(token: String): String? {
+        return try {
+            getClaims(token)?.get("type", String::class.java)
+        } catch (e: Exception) {
+            logger.debug("Failed to extract token type: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Check if token is an access token
+     */
+    fun isAccessToken(token: String): Boolean {
+        return getTokenType(token) == TOKEN_TYPE_ACCESS
+    }
+
+    /**
+     * Check if token is a refresh token
+     */
+    fun isRefreshToken(token: String): Boolean {
+        return getTokenType(token) == TOKEN_TYPE_REFRESH
+    }
+
+    /**
      * Validate token against the given email
      */
     fun validateToken(token: String, email: String): Boolean {
@@ -192,6 +264,75 @@ class JwtTokenUtil(
         }
     }
 
+    /**
+     * Validate access token specifically
+     */
+    fun validateAccessToken(token: String, email: String): Boolean {
+        return validateToken(token, email) && isAccessToken(token)
+    }
+
+    /**
+     * Validate refresh token specifically
+     */
+    fun validateRefreshToken(token: String, email: String): Boolean {
+        return validateToken(token, email) && isRefreshToken(token)
+    }
+
+    /**
+     * Check if token is expired
+     */
+    fun isTokenExpired(token: String): Boolean {
+        return try {
+            val expiration = getExpirationFromToken(token)
+            expiration?.before(Date()) ?: true
+        } catch (e: Exception) {
+            logger.debug("Error checking token expiration: ${e.message}")
+            true
+        }
+    }
+
+    /**
+     * Check if token needs refresh (approaching expiry)
+     * Returns true if token will expire within the configured threshold
+     */
+    fun needsRefresh(token: String): Boolean {
+        if (!jwtConfig.isAutoRefreshEnabled()) {
+            return false
+        }
+
+        return try {
+            val expiration = getExpirationFromToken(token) ?: return true
+            val now = Date()
+            val timeUntilExpiry = expiration.time - now.time
+
+            // Token needs refresh if it expires within threshold
+            timeUntilExpiry > 0 && timeUntilExpiry < jwtConfig.getAutoRefreshThresholdMs()
+        } catch (e: Exception) {
+            logger.debug("Error checking if token needs refresh: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Get time until token expiry in seconds
+     */
+    fun getTimeUntilExpirySeconds(token: String): Long {
+        return try {
+            val expiration = getExpirationFromToken(token) ?: return 0
+            val now = Date()
+            val timeUntilExpiry = expiration.time - now.time
+            if (timeUntilExpiry > 0) timeUntilExpiry / 1000 else 0
+        } catch (e: Exception) {
+            logger.debug("Error getting time until expiry: ${e.message}")
+            0
+        }
+    }
+
+    /**
+     * Get JwtConfig for external access
+     */
+    fun getConfig(): JwtConfig = jwtConfig
+
     private fun getClaims(token: String): Claims? {
         return try {
             Jwts.parser()
@@ -205,4 +346,15 @@ class JwtTokenUtil(
         }
     }
 }
+
+/**
+ * Data class representing a pair of Access and Refresh tokens
+ */
+data class TokenPair(
+    val accessToken: String,
+    val refreshToken: String,
+    val accessTokenExpiresIn: Long,  // in seconds
+    val refreshTokenExpiresIn: Long, // in seconds
+    val tokenType: String = "Bearer"
+)
 

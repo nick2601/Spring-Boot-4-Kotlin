@@ -1,7 +1,9 @@
 package com.example.nikhil.application.service
 
 import com.example.nikhil.infrastructure.mapper.UserMapper
+import com.example.nikhil.infrastructure.persistence.entity.RoleName
 import com.example.nikhil.infrastructure.persistence.entity.User
+import com.example.nikhil.infrastructure.persistence.repository.RoleRepository
 import com.example.nikhil.infrastructure.persistence.repository.UserRepository
 import com.example.nikhil.infrastructure.web.dto.RegisterUserRequest
 import com.example.nikhil.infrastructure.web.dto.UserDto
@@ -19,12 +21,13 @@ import org.springframework.transaction.annotation.Transactional
 class UserService(
     private val userRepository: UserRepository,
     private val userMapper: UserMapper,
-    private val passwordEncoder: PasswordEncoder
+    private val passwordEncoder: PasswordEncoder,
+    private val roleRepository: RoleRepository
 ) {
     private val logger = LoggerFactory.getLogger(UserService::class.java)
 
     /**
-     * Register new user with password encoding
+     * Register new user with password encoding and default CUSTOMER role
      */
     @Transactional
     fun registerUser(request: RegisterUserRequest): UserDto {
@@ -41,8 +44,14 @@ class UserService(
             password = passwordEncoder.encode(request.password)
         )
 
+        // Assign default CUSTOMER role
+        roleRepository.findByName(RoleName.ROLE_CUSTOMER).ifPresent { role ->
+            user.addRole(role)
+            logger.debug("Assigned ROLE_CUSTOMER to new user: ${request.email}")
+        }
+
         val savedUser = userRepository.save(user)
-        logger.info("User registered successfully with id: ${savedUser.id}")
+        logger.info("User registered successfully with id: ${savedUser.id}, roles: ${savedUser.getRoleNames()}")
         return userMapper.toDto(savedUser)
     }
 

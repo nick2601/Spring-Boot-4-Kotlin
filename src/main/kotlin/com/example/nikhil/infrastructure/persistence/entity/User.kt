@@ -13,6 +13,7 @@ import java.time.LocalDateTime
  * - One-to-many with Address
  * - One-to-one with Profile
  * - Many-to-many with Product (wishlist)
+ * - Many-to-many with Role (authorization)
  */
 @Entity
 @Table(name = "users")
@@ -56,7 +57,15 @@ class User(
         inverseJoinColumns = [JoinColumn(name = "product_id")]
     )
     @JsonIgnore
-    val favoriteProducts: MutableSet<Product> = mutableSetOf()
+    val favoriteProducts: MutableSet<Product> = mutableSetOf(),
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "user_roles",
+        joinColumns = [JoinColumn(name = "user_id")],
+        inverseJoinColumns = [JoinColumn(name = "role_id")]
+    )
+    val roles: MutableSet<Role> = mutableSetOf()
 ) {
     fun addAddress(address: Address) {
         addresses.add(address)
@@ -75,6 +84,24 @@ class User(
     fun removeFavoriteProduct(product: Product) {
         favoriteProducts.remove(product)
     }
+
+    fun addRole(role: Role) {
+        roles.add(role)
+    }
+
+    fun removeRole(role: Role) {
+        roles.remove(role)
+    }
+
+    fun hasRole(roleName: RoleName): Boolean {
+        return roles.any { it.name == roleName }
+    }
+
+    fun isAdmin(): Boolean = hasRole(RoleName.ROLE_ADMIN)
+
+    fun isCustomer(): Boolean = hasRole(RoleName.ROLE_CUSTOMER)
+
+    fun getRoleNames(): List<String> = roles.map { it.name.name }
 
     override fun toString(): String = "User(id=$id, name=$name, email=$email)"
 

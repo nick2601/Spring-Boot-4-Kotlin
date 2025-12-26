@@ -4,6 +4,7 @@ import com.example.nikhil.application.service.AuthService
 import com.example.nikhil.infrastructure.security.JwtTokenUtil
 import com.example.nikhil.infrastructure.web.dto.AuthRequest
 import com.example.nikhil.infrastructure.web.dto.AuthResponse
+import com.example.nikhil.infrastructure.web.dto.RefreshTokenRequest
 import com.example.nikhil.infrastructure.web.dto.UserDto
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -143,6 +144,12 @@ class AuthController(
                 issuedAt?.let { response["issuedAt"] = it.toString() }
                 expiration?.let { response["expiresAt"] = it.toString() }
 
+                // Add token refresh information
+                response["tokenType"] = jwtTokenUtil.getTokenType(token) ?: "unknown"
+                response["timeUntilExpirySeconds"] = jwtTokenUtil.getTimeUntilExpirySeconds(token)
+                response["needsRefresh"] = jwtTokenUtil.needsRefresh(token)
+                response["autoRefreshEnabled"] = jwtTokenUtil.getConfig().isAutoRefreshEnabled()
+
                 ResponseEntity.ok(response)
             } else {
                 ResponseEntity.status(401).body(mapOf(
@@ -203,42 +210,28 @@ class AuthController(
 
     @PostMapping("/refresh")
     @Operation(
-        summary = "Refresh JWT token",
-        description = "Generates a new JWT token if the current token is still valid"
+        summary = "Refresh JWT tokens",
+        description = "Use a valid refresh token to get new access and refresh tokens"
     )
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "200", description = "Token refreshed"),
-            ApiResponse(responseCode = "401", description = "Invalid or expired token", content = [Content()])
+            ApiResponse(responseCode = "200", description = "Tokens refreshed successfully"),
+            ApiResponse(responseCode = "401", description = "Invalid or expired refresh token", content = [Content()])
         ]
     )
     fun refreshToken(
-        @RequestHeader("Authorization") authHeader: String
+        @RequestBody request: RefreshTokenRequest
     ): ResponseEntity<Any> {
-        val token = authHeader.removePrefix("Bearer ").trim()
-
-        if (token.isEmpty()) {
+        if (request.refreshToken.isBlank()) {
             return ResponseEntity.status(401).body(mapOf(
                 "success" to false,
-                "message" to "No token provided"
+                "message" to "No refresh token provided"
             ))
         }
 
         return try {
-            val email = authService.getEmailFromToken(token)
-            if (email != null && authService.validateToken(token, email)) {
-                val newToken = authService.refreshToken(email)
-                ResponseEntity.ok(AuthResponse(
-                    token = newToken,
-                    email = email,
-                    name = null
-                ))
-            } else {
-                ResponseEntity.status(401).body(mapOf(
-                    "success" to false,
-                    "message" to "Token is invalid or expired"
-                ))
-            }
+            val response = authService.refreshTokens(request.refreshToken)
+            ResponseEntity.ok(response)
         } catch (e: Exception) {
             ResponseEntity.status(401).body(mapOf(
                 "success" to false,
