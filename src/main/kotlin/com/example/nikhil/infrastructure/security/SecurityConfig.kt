@@ -33,6 +33,7 @@ class SecurityConfig(
             "/products/**",
             "/carts/**",
             "/payments/**",
+            "/test/**",  // Test endpoints for password hashing (remove in production)
             "/actuator/health",
             "/api-console.html",
             "/static/**",

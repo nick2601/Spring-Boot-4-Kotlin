@@ -89,31 +89,31 @@ INSERT INTO products (name, price, description, category_id) VALUES
 -- =====================================================
 INSERT INTO users (name, email, password) VALUES
 -- Tech professionals
-('Alex Thompson', 'alex.thompson@techcorp.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
-('Sophia Chen', 'sophia.chen@innovate.io', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
-('Ryan O''Brien', 'ryan.obrien@developer.net', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
-('Priya Patel', 'priya.patel@cloud.tech', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+('Alex Thompson', 'alex.thompson@techcorp.com', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),
+('Sophia Chen', 'sophia.chen@innovate.io', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),
+('Ryan O''Brien', 'ryan.obrien@developer.net', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),
+('Priya Patel', 'priya.patel@cloud.tech', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),
 
 -- Creative professionals
-('Emma Rodriguez', 'emma.rodriguez@design.studio', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
-('Lucas Kim', 'lucas.kim@creative.agency', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
-('Olivia Foster', 'olivia.foster@media.co', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+('Emma Rodriguez', 'emma.rodriguez@design.studio', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),
+('Lucas Kim', 'lucas.kim@creative.agency', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),
+('Olivia Foster', 'olivia.foster@media.co', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),
 
 -- Healthcare professionals
-('Dr. William Chang', 'william.chang@healthcare.org', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
-('Dr. Rachel Green', 'rachel.green@medical.center', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+('Dr. William Chang', 'william.chang@healthcare.org', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),
+('Dr. Rachel Green', 'rachel.green@medical.center', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),
 
 -- Students
-('Tyler Johnson', 'tyler.johnson@university.edu', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
-('Mia Williams', 'mia.williams@college.edu', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
-('Ethan Brown', 'ethan.brown@student.edu', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+('Tyler Johnson', 'tyler.johnson@university.edu', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),
+('Mia Williams', 'mia.williams@college.edu', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),
+('Ethan Brown', 'ethan.brown@student.edu', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),
 
 -- Retirees
-('George Miller', 'george.miller@retired.com', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
-('Patricia Moore', 'patricia.moore@senior.net', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG'),
+('George Miller', 'george.miller@retired.com', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),
+('Patricia Moore', 'patricia.moore@senior.net', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe'),
 
 -- International
-('Yuki Tanaka', 'yuki.tanaka@japan.co.jp', '$2b$12$PZusJRt3v6TG66rI7Xg92.vIrB/8hckfKLEElMwlfXxsZdRshu5fG');
+('Yuki Tanaka', 'yuki.tanaka@japan.co.jp', '$2a$10$qIAQzz6kBzTPV/ClEdMcceJQJsybEAqD6pyGe79Vx22kL42OPiBNe');
 
 -- =====================================================
 -- ADD ADDRESSES FOR NEW USERS (users 16-30)

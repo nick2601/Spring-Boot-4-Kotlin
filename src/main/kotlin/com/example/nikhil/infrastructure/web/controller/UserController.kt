@@ -1,6 +1,5 @@
 package com.example.nikhil.infrastructure.web.controller
 
-import com.example.nikhil.application.service.AuthService
 import com.example.nikhil.application.service.UserService
 import com.example.nikhil.infrastructure.web.dto.*
 import io.swagger.v3.oas.annotations.Operation
@@ -8,12 +7,10 @@ import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
-import io.swagger.v3.oas.annotations.security.SecurityRequirement
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
-import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.*
 
 /**
@@ -24,38 +21,8 @@ import org.springframework.web.bind.annotation.*
 @RequestMapping("/users")
 @Tag(name = "Users", description = "User management and authentication endpoints")
 class UserController(
-    private val userService: UserService,
-    private val authService: AuthService
+    private val userService: UserService
 ) {
-
-    @PostMapping("/login")
-    @Operation(summary = "User login", description = "Authenticate user and receive JWT token")
-    @ApiResponses(
-        value = [
-            ApiResponse(responseCode = "200", description = "Login successful"),
-            ApiResponse(responseCode = "401", description = "Invalid credentials", content = [Content()])
-        ]
-    )
-    fun login(@Valid @RequestBody authRequest: AuthRequest): ResponseEntity<AuthResponse> {
-        val response = authService.login(authRequest)
-        return ResponseEntity.ok(response)
-    }
-
-    @GetMapping("/me")
-    @Operation(summary = "Get current user", description = "Get the currently authenticated user's details")
-    @SecurityRequirement(name = "bearerAuth")
-    @ApiResponses(
-        value = [
-            ApiResponse(responseCode = "200", description = "User details retrieved"),
-            ApiResponse(responseCode = "401", description = "Not authenticated", content = [Content()])
-        ]
-    )
-    fun getCurrentUser(authentication: Authentication): ResponseEntity<UserDto> {
-        val email = authentication.name
-        val user = userService.getUserByEmail(email)
-            ?: return ResponseEntity.notFound().build()
-        return ResponseEntity.ok(userService.getUserById(user.id!!))
-    }
 
     @GetMapping
     @Operation(summary = "Get all users", description = "Retrieves all users with optional sorting")

@@ -81,6 +81,17 @@ class UserService(
     }
 
     /**
+     * Get user DTO by email
+     * @throws NoSuchElementException if user not found
+     */
+    fun getUserDtoByEmail(email: String): UserDto {
+        logger.debug("Fetching user with email: $email")
+        val user = userRepository.findByEmail(email)
+            ?: throw NoSuchElementException("User not found with email: $email")
+        return userMapper.toDto(user)
+    }
+
+    /**
      * Get user entity by name
      */
     fun getUserByName(name: String): User? {
