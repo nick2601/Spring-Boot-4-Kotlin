@@ -1,7 +1,7 @@
 package com.example.nikhil.infrastructure.web.controller
 
 import com.example.nikhil.application.service.AuthService
-import com.example.nikhil.infrastructure.security.JwtTokenUtil
+import com.example.nikhil.application.service.JwtService
 import com.example.nikhil.infrastructure.web.dto.AuthRequest
 import com.example.nikhil.infrastructure.web.dto.AuthResponse
 import com.example.nikhil.infrastructure.web.dto.RefreshTokenRequest
@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*
 @Tag(name = "Authentication", description = "User authentication endpoints")
 class AuthController(
     private val authService: AuthService,
-    private val jwtTokenUtil: JwtTokenUtil
+    private val jwtService: JwtService
 ) {
 
     @PostMapping("/login")
@@ -126,13 +126,13 @@ class AuthController(
             val email = authService.getEmailFromToken(token)
             if (email != null && authService.validateToken(token, email)) {
                 // Extract all enhanced claims
-                val userId = jwtTokenUtil.getUserIdFromToken(token)
-                val name = jwtTokenUtil.getNameFromToken(token)
-                val roles = jwtTokenUtil.getRolesFromToken(token)
-                val tokenId = jwtTokenUtil.getTokenIdFromToken(token)
-                val issuer = jwtTokenUtil.getIssuerFromToken(token)
-                val issuedAt = jwtTokenUtil.getIssuedAtFromToken(token)
-                val expiration = jwtTokenUtil.getExpirationFromToken(token)
+                val userId = jwtService.getUserIdFromToken(token)
+                val name = jwtService.getNameFromToken(token)
+                val roles = jwtService.getRolesFromToken(token)
+                val tokenId = jwtService.getTokenIdFromToken(token)
+                val issuer = jwtService.getIssuerFromToken(token)
+                val issuedAt = jwtService.getIssuedAtFromToken(token)
+                val expiration = jwtService.getExpirationFromToken(token)
 
                 val response = mutableMapOf<String, Any>(
                     "valid" to true,
@@ -149,10 +149,10 @@ class AuthController(
                 expiration?.let { response["expiresAt"] = it.toString() }
 
                 // Add token refresh information
-                response["tokenType"] = jwtTokenUtil.getTokenType(token) ?: "unknown"
-                response["timeUntilExpirySeconds"] = jwtTokenUtil.getTimeUntilExpirySeconds(token)
-                response["needsRefresh"] = jwtTokenUtil.needsRefresh(token)
-                response["autoRefreshEnabled"] = jwtTokenUtil.getConfig().isAutoRefreshEnabled()
+                response["tokenType"] = jwtService.getTokenType(token) ?: "unknown"
+                response["timeUntilExpirySeconds"] = jwtService.getTimeUntilExpirySeconds(token)
+                response["needsRefresh"] = jwtService.needsRefresh(token)
+                response["autoRefreshEnabled"] = jwtService.getConfig().isAutoRefreshEnabled()
 
                 ResponseEntity.ok(response)
             } else {
@@ -319,10 +319,10 @@ class AuthController(
             )
 
             // Check if token is expired
-            tokenInfo.expiration?.let {
-                response["isExpired"] = it.before(java.util.Date())
+            tokenInfo.expiration?.let { exp ->
                 val now = java.util.Date()
-                val timeLeft = it.time - now.time
+                response["isExpired"] = exp.before(now)
+                val timeLeft = exp.time - now.time
                 response["timeToExpiry"] = if (timeLeft > 0) {
                     "${timeLeft / 1000 / 60} minutes"
                 } else {
@@ -340,4 +340,3 @@ class AuthController(
         }
     }
 }
-

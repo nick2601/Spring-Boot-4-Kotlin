@@ -1,6 +1,7 @@
 package com.example.nikhil.application.service
 
 import com.example.nikhil.infrastructure.persistence.entity.RoleName
+import com.example.nikhil.infrastructure.persistence.entity.SystemStats
 import com.example.nikhil.infrastructure.persistence.entity.User
 import com.example.nikhil.infrastructure.persistence.repository.RoleRepository
 import com.example.nikhil.infrastructure.persistence.repository.UserRepository
@@ -115,14 +116,5 @@ class AdminService(
     }
 }
 
-/**
- * Data class for system statistics
- */
-data class SystemStats(
-    val totalUsers: Long,
-    val adminCount: Long,
-    val customerCount: Long,
-    val usersWithNoRoles: Long,
-    val availableRoles: List<String>
-)
+
 

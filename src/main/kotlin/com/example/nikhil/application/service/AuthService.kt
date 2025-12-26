@@ -4,15 +4,17 @@ import com.example.nikhil.infrastructure.kafka.event.UserAction
 import com.example.nikhil.infrastructure.kafka.event.UserEvent
 import com.example.nikhil.infrastructure.kafka.producer.KafkaProducerService
 import com.example.nikhil.infrastructure.mapper.UserMapper
+import com.example.nikhil.infrastructure.persistence.entity.User
 import com.example.nikhil.infrastructure.persistence.repository.UserRepository
-import com.example.nikhil.infrastructure.security.JwtTokenUtil
 import com.example.nikhil.infrastructure.web.dto.AuthRequest
 import com.example.nikhil.infrastructure.web.dto.AuthResponse
+import com.example.nikhil.infrastructure.web.dto.TokenInfo
+import com.example.nikhil.infrastructure.web.dto.TokenPair
 import com.example.nikhil.infrastructure.web.dto.UserDto
+import com.example.nikhil.infrastructure.web.exception.InvalidCredentialsException
 import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
-import java.util.*
 
 /**
  * Authentication Use Case
@@ -25,7 +27,7 @@ import java.util.*
  * - Current user operations
  *
  * Delegates to:
- * - JwtTokenUtil: Token generation and parsing
+ * - JwtService: Token generation and parsing
  * - PasswordEncoder: Password verification
  * - UserRepository: User data access
  * - KafkaProducerService: Event publishing
@@ -35,11 +37,28 @@ import java.util.*
 class AuthService(
     private val userRepository: UserRepository,
     private val passwordEncoder: PasswordEncoder,
-    private val jwtTokenUtil: JwtTokenUtil,
+    private val jwtService: JwtService,
     private val kafkaProducerService: KafkaProducerService,
     private val userMapper: UserMapper
 ) {
     private val logger = LoggerFactory.getLogger(AuthService::class.java)
+
+    // Helper to get user roles with fallback
+    private fun getUserRoles(user: User): List<String> =
+        if (user.roles.isNotEmpty()) user.getRoleNames() else listOf("ROLE_CUSTOMER")
+
+    // Helper to create AuthResponse from user and token pair
+    private fun createAuthResponse(user: User, tokenPair: TokenPair): AuthResponse =
+        AuthResponse(
+            accessToken = tokenPair.accessToken,
+            refreshToken = tokenPair.refreshToken,
+            email = user.email!!,
+            userId = user.id!!,
+            name = user.name,
+            roles = getUserRoles(user),
+            accessTokenExpiresIn = tokenPair.accessTokenExpiresIn,
+            refreshTokenExpiresIn = tokenPair.refreshTokenExpiresIn
+        )
 
     /**
      * Authenticate user and generate JWT token
@@ -61,20 +80,11 @@ class AuthService(
             throw InvalidCredentialsException("Invalid email or password")
         }
 
-        val email = user.email ?: throw InvalidCredentialsException("User email is null")
-        val userId = user.id ?: throw InvalidCredentialsException("User ID is null")
-        val userName = user.name
-
-        // Get roles from database, default to ROLE_CUSTOMER if no roles assigned
-        val roles = if (user.roles.isNotEmpty()) {
-            user.getRoleNames()
-        } else {
-            listOf("ROLE_CUSTOMER")
-        }
-
         // Generate both access and refresh tokens
-        val tokenPair = jwtTokenUtil.generateTokenPair(email, userId, userName, roles)
-        logger.info("Login successful for email: ${authRequest.email}, userId: $userId, roles: $roles")
+        val tokenPair = jwtService.generateTokenPair(
+            user.email!!, user.id!!, user.name, getUserRoles(user)
+        )
+        logger.info("Login successful for email: ${authRequest.email}, userId: ${user.id}, roles: ${getUserRoles(user)}")
 
         // Publish login event to Kafka
         try {
@@ -82,7 +92,7 @@ class AuthService(
                 UserEvent(
                     eventType = "USER_LOGIN",
                     userId = user.id!!,
-                    email = email,
+                    email = user.email!!,
                     action = UserAction.LOGGED_IN,
                     details = mapOf("ipAddress" to "unknown", "userAgent" to "unknown")
                 )
@@ -91,30 +101,21 @@ class AuthService(
             logger.warn("Failed to publish login event to Kafka: ${e.message}")
         }
 
-        return AuthResponse(
-            accessToken = tokenPair.accessToken,
-            refreshToken = tokenPair.refreshToken,
-            email = email,
-            userId = userId,
-            name = user.name,
-            roles = roles,
-            accessTokenExpiresIn = tokenPair.accessTokenExpiresIn,
-            refreshTokenExpiresIn = tokenPair.refreshTokenExpiresIn
-        )
+        return createAuthResponse(user, tokenPair)
     }
 
     /**
      * Validate if a token is valid for the given email
      */
     fun validateToken(token: String, email: String): Boolean {
-        return jwtTokenUtil.validateToken(token, email)
+        return jwtService.validateToken(token, email)
     }
 
     /**
      * Extract email from JWT token
      */
     fun getEmailFromToken(token: String): String? {
-        return jwtTokenUtil.getEmailFromToken(token)
+        return jwtService.getEmailFromToken(token)
     }
 
     /**
@@ -127,41 +128,24 @@ class AuthService(
         logger.info("Attempting to refresh tokens")
 
         // Extract email from refresh token
-        val email = jwtTokenUtil.getEmailFromToken(refreshToken)
+        val email = jwtService.getEmailFromToken(refreshToken)
             ?: throw InvalidCredentialsException("Invalid refresh token")
 
         // Validate it's actually a refresh token and not expired
-        if (!jwtTokenUtil.validateRefreshToken(refreshToken, email)) {
+        if (!jwtService.validateRefreshToken(refreshToken, email)) {
             throw InvalidCredentialsException("Refresh token is invalid or expired")
         }
 
         val user = userRepository.findByEmail(email)
             ?: throw InvalidCredentialsException("User not found")
 
-        val userId = user.id ?: throw InvalidCredentialsException("User ID is null")
-        val userName = user.name
-
-        // Get roles from database, default to ROLE_CUSTOMER if no roles assigned
-        val roles = if (user.roles.isNotEmpty()) {
-            user.getRoleNames()
-        } else {
-            listOf("ROLE_CUSTOMER")
-        }
-
         // Generate new token pair
-        val tokenPair = jwtTokenUtil.generateTokenPair(email, userId, userName, roles)
-        logger.info("Tokens refreshed successfully for email: $email, roles: $roles")
-
-        return AuthResponse(
-            accessToken = tokenPair.accessToken,
-            refreshToken = tokenPair.refreshToken,
-            email = email,
-            userId = userId,
-            name = userName,
-            roles = roles,
-            accessTokenExpiresIn = tokenPair.accessTokenExpiresIn,
-            refreshTokenExpiresIn = tokenPair.refreshTokenExpiresIn
+        val tokenPair = jwtService.generateTokenPair(
+            user.email!!, user.id!!, user.name, getUserRoles(user)
         )
+        logger.info("Tokens refreshed successfully for email: $email, roles: ${getUserRoles(user)}")
+
+        return createAuthResponse(user, tokenPair)
     }
 
     /**
@@ -173,17 +157,9 @@ class AuthService(
         val user = userRepository.findByEmail(email)
             ?: throw InvalidCredentialsException("User not found")
 
-        val userId = user.id ?: throw InvalidCredentialsException("User ID is null")
-        val userName = user.name
-
-        // Get roles from database, default to ROLE_CUSTOMER if no roles assigned
-        val roles = if (user.roles.isNotEmpty()) {
-            user.getRoleNames()
-        } else {
-            listOf("ROLE_CUSTOMER")
-        }
-
-        return jwtTokenUtil.generateAccessToken(email, userId, userName, roles)
+        return jwtService.generateAccessToken(
+            user.email!!, user.id!!, user.name, getUserRoles(user)
+        )
     }
 
     /**
@@ -230,35 +206,14 @@ class AuthService(
      */
     fun getTokenInfo(token: String): TokenInfo {
         return TokenInfo(
-            email = jwtTokenUtil.getEmailFromToken(token),
-            userId = jwtTokenUtil.getUserIdFromToken(token),
-            name = jwtTokenUtil.getNameFromToken(token),
-            roles = jwtTokenUtil.getRolesFromToken(token),
-            tokenId = jwtTokenUtil.getTokenIdFromToken(token),
-            issuer = jwtTokenUtil.getIssuerFromToken(token),
-            issuedAt = jwtTokenUtil.getIssuedAtFromToken(token),
-            expiration = jwtTokenUtil.getExpirationFromToken(token)
+            email = jwtService.getEmailFromToken(token),
+            userId = jwtService.getUserIdFromToken(token),
+            name = jwtService.getNameFromToken(token),
+            roles = jwtService.getRolesFromToken(token),
+            tokenId = jwtService.getTokenIdFromToken(token),
+            issuer = jwtService.getIssuerFromToken(token),
+            issuedAt = jwtService.getIssuedAtFromToken(token),
+            expiration = jwtService.getExpirationFromToken(token)
         )
     }
 }
-
-/**
- * Token Information DTO
- * Contains all JWT claims and metadata
- */
-data class TokenInfo(
-    val email: String?,
-    val userId: Long?,
-    val name: String?,
-    val roles: List<String>,
-    val tokenId: String?,
-    val issuer: String?,
-    val issuedAt: Date?,
-    val expiration: Date?
-)
-
-/**
- * Exception thrown when authentication fails
- */
-class InvalidCredentialsException(message: String) : RuntimeException(message)
-

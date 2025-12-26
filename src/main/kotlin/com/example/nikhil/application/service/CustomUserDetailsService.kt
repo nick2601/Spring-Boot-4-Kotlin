@@ -36,7 +36,7 @@ class CustomUserDetailsService(
             listOf(SimpleGrantedAuthority(RoleName.ROLE_CUSTOMER.name))
         }
 
-        logger.debug("User $email has roles: ${authorities.map { it.authority }}")
+        logger.debug("User {} has roles: {}", email, authorities.map { it.authority })
 
         return User.builder()
             .username(user.email ?: throw UsernameNotFoundException("User email is null"))

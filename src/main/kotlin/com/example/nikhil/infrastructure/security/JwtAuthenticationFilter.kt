@@ -1,5 +1,6 @@
 package com.example.nikhil.infrastructure.security
 
+import com.example.nikhil.application.service.JwtService
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -18,7 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter
  */
 @Component
 class JwtAuthenticationFilter(
-    private val jwtTokenUtil: JwtTokenUtil,
+    private val jwtService: JwtService,
     private val userDetailsService: UserDetailsService
 ) : OncePerRequestFilter() {
 
@@ -41,14 +42,14 @@ class JwtAuthenticationFilter(
 
             if (authHeader != null && authHeader.startsWith(BEARER_PREFIX)) {
                 val token = authHeader.substring(BEARER_PREFIX.length)
-                val email = jwtTokenUtil.getEmailFromToken(token)
+                val email = jwtService.getEmailFromToken(token)
 
                 if (email != null && SecurityContextHolder.getContext().authentication == null) {
                     val userDetails = userDetailsService.loadUserByUsername(email)
 
                     // Check if token is valid (and is an access token)
-                    if (jwtTokenUtil.validateToken(token, userDetails.username) &&
-                        jwtTokenUtil.isAccessToken(token)
+                    if (jwtService.validateToken(token, userDetails.username) &&
+                        jwtService.isAccessToken(token)
                     ) {
 
                         val authToken = UsernamePasswordAuthenticationToken(
@@ -62,13 +63,13 @@ class JwtAuthenticationFilter(
                         log.debug("Authentication successful for user: $email")
 
                         // Check if token needs refresh (approaching expiry)
-                        if (jwtTokenUtil.needsRefresh(token)) {
-                            val userId = jwtTokenUtil.getUserIdFromToken(token)
-                            val name = jwtTokenUtil.getNameFromToken(token)
-                            val roles = jwtTokenUtil.getRolesFromToken(token)
+                        if (jwtService.needsRefresh(token)) {
+                            val userId = jwtService.getUserIdFromToken(token)
+                            val name = jwtService.getNameFromToken(token)
+                            val roles = jwtService.getRolesFromToken(token)
 
                             // Generate new access token
-                            val newAccessToken = jwtTokenUtil.generateAccessToken(
+                            val newAccessToken = jwtService.generateAccessToken(
                                 email, userId, name, roles
                             )
 
@@ -88,4 +89,3 @@ class JwtAuthenticationFilter(
         filterChain.doFilter(request, response)
     }
 }
-

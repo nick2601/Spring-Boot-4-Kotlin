@@ -1,5 +1,6 @@
 package com.example.nikhil.infrastructure.security
 
+import jakarta.annotation.PostConstruct
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Configuration
 
@@ -21,9 +22,16 @@ class JwtConfig {
 
     /**
      * Secret key for signing JWT tokens
-     * IMPORTANT: Change this in production!
+     * IMPORTANT: Must be set via application.properties or environment variable!
      */
-    var secret: String = "MySecretKeyForJWTTokenGenerationMustBeAtLeast256BitsLongForHS256Algorithm"
+    var secret: String = ""
+
+    @PostConstruct
+    fun validate() {
+        if (secret.isBlank() || secret.length < 32) {
+            throw IllegalStateException("JWT secret must be set and at least 32 characters (256 bits) long. Set it via environment variable or application.properties.")
+        }
+    }
 
     /**
      * Token issuer identifier
@@ -103,4 +111,3 @@ class AutoRefreshConfig(
      */
     var threshold: Long = 300000L
 )
-

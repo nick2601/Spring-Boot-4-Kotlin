@@ -68,8 +68,7 @@ class CartService(
      */
     fun getCartById(cartId: Long): CartDto {
         logger.debug("Fetching cart with id: $cartId")
-        val cart = cartRepository.findByIdWithItems(cartId)
-            .orElseThrow { NoSuchElementException("Cart not found with id: $cartId") }
+        val cart = getCartWithItemsOrThrow(cartId)
         return cartMapper.toDto(cart)
     }
 
@@ -89,8 +88,7 @@ class CartService(
     @Transactional
     fun clearCart(cartId: Long): CartDto {
         logger.info("Clearing cart: $cartId")
-        val cart =
-            cartRepository.findById(cartId).orElseThrow { NoSuchElementException("Cart not found with id: $cartId") }
+        val cart = getCartOrThrow(cartId)
 
         val userId = cart.user?.id ?: 0L
         cartItemRepository.deleteAllByCartId(cartId)
@@ -111,8 +109,7 @@ class CartService(
     @Transactional
     fun deleteCart(cartId: Long) {
         logger.info("Deleting cart: $cartId")
-        val cart =
-            cartRepository.findById(cartId).orElseThrow { NoSuchElementException("Cart not found with id: $cartId") }
+        val cart = getCartOrThrow(cartId)
 
         val userId = cart.user?.id ?: 0L
         cartRepository.delete(cart)
@@ -131,8 +128,7 @@ class CartService(
     fun addItemToCart(cartId: Long, request: AddToCartRequest): CartDto {
         logger.info("Adding product ${request.productId} to cart: $cartId")
 
-        val cart =
-            cartRepository.findById(cartId).orElseThrow { NoSuchElementException("Cart not found with id: $cartId") }
+        val cart = getCartOrThrow(cartId)
 
         val product = productRepository.findById(request.productId)
             .orElseThrow { NoSuchElementException("Product not found with id: ${request.productId}") }
@@ -173,12 +169,9 @@ class CartService(
     fun updateItemQuantity(cartId: Long, productId: Long, request: UpdateCartItemRequest): CartDto {
         logger.info("Updating quantity for product $productId in cart: $cartId")
 
-        val cart = cartRepository.findById(cartId)
-            .orElseThrow { NoSuchElementException("Cart not found with id: $cartId") }
+        val cart = getCartOrThrow(cartId)
 
-        val cartItem = cartItemRepository.findByCartIdAndProductId(cartId, productId)
-            .orElseThrow { NoSuchElementException("Product $productId not found in cart $cartId") }
-
+        val cartItem = getCartItemOrThrow(cartId, productId)
         val userId = cart.user?.id ?: 0L
         val productName = cartItem.product?.name ?: "Unknown"
 
@@ -203,12 +196,9 @@ class CartService(
     fun removeItemFromCart(cartId: Long, productId: Long): CartDto {
         logger.info("Removing product $productId from cart: $cartId")
 
-        val cart = cartRepository.findById(cartId)
-            .orElseThrow { NoSuchElementException("Cart not found with id: $cartId") }
+        val cart = getCartOrThrow(cartId)
 
-        val cartItem = cartItemRepository.findByCartIdAndProductId(cartId, productId)
-            .orElseThrow { NoSuchElementException("Product $productId not found in cart $cartId") }
-
+        val cartItem = getCartItemOrThrow(cartId, productId)
         val userId = cart.user?.id ?: 0L
         val productName = cartItem.product?.name ?: "Unknown"
 
@@ -233,8 +223,7 @@ class CartService(
     fun updateCartStatus(cartId: Long, newStatus: CartStatus): CartDto {
         logger.info("Updating cart $cartId status to $newStatus")
 
-        val cart =
-            cartRepository.findById(cartId).orElseThrow { NoSuchElementException("Cart not found with id: $cartId") }
+        val cart = getCartOrThrow(cartId)
 
         cart.status = newStatus
         val updatedCart = cartRepository.save(cart)
@@ -249,8 +238,7 @@ class CartService(
      * Get updated cart with items
      */
     private fun getUpdatedCart(cartId: Long): CartDto {
-        val cart = cartRepository.findByIdWithItems(cartId)
-            .orElseThrow { NoSuchElementException("Cart not found with id: $cartId") }
+        val cart = getCartWithItemsOrThrow(cartId)
         return cartMapper.toDto(cart)
     }
 
@@ -319,8 +307,7 @@ class CartService(
     fun checkoutCart(cartId: Long): CartDto {
         logger.info("Starting checkout for cart: $cartId")
 
-        val cart = cartRepository.findByIdWithItems(cartId)
-            .orElseThrow { NoSuchElementException("Cart not found with id: $cartId") }
+        val cart = getCartWithItemsOrThrow(cartId)
 
         if (cart.items.isEmpty()) {
             throw IllegalStateException("Cannot checkout an empty cart")
@@ -365,8 +352,7 @@ class CartService(
     fun completeCheckout(cartId: Long, paymentId: String): CartDto {
         logger.info("Completing checkout for cart: $cartId with payment: $paymentId")
 
-        val cart = cartRepository.findById(cartId)
-            .orElseThrow { NoSuchElementException("Cart not found with id: $cartId") }
+        val cart = getCartOrThrow(cartId)
 
         val userId = cart.user?.id ?: 0L
         cart.status = CartStatus.COMPLETED
@@ -394,4 +380,28 @@ class CartService(
         logger.info("Checkout completed for cart: $cartId")
         return cartMapper.toDto(updatedCart)
     }
+
+    /**
+     * Helper to fetch cart by id or throw
+     */
+    private fun getCartOrThrow(cartId: Long): Cart =
+        cartRepository.findById(cartId).orElseThrow { NoSuchElementException("Cart not found with id: $cartId") }
+
+    /**
+     * Helper to fetch cart with items by id or throw
+     */
+    private fun getCartWithItemsOrThrow(cartId: Long): Cart =
+        cartRepository.findByIdWithItems(cartId).orElseThrow { NoSuchElementException("Cart not found with id: $cartId") }
+
+    /**
+     * Helper to fetch cart item by cartId and productId or throw
+     */
+    private fun getCartItemOrThrow(cartId: Long, productId: Long): CartItem =
+        cartItemRepository.findByCartIdAndProductId(cartId, productId)
+            .orElseThrow { NoSuchElementException("Product $productId not found in cart $cartId") }
+
+    /**
+     * Helper to save cart and return DTO
+     */
+    private fun saveCartAndReturnDto(cart: Cart): CartDto = cartMapper.toDto(cartRepository.save(cart))
 }

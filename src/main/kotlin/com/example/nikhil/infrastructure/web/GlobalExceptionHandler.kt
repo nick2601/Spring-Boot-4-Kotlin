@@ -1,6 +1,8 @@
 package com.example.nikhil.infrastructure.web
 
-import com.example.nikhil.application.service.InvalidCredentialsException
+import com.example.nikhil.infrastructure.web.dto.ErrorResponse
+import com.example.nikhil.infrastructure.web.dto.ValidationErrorResponse
+import com.example.nikhil.infrastructure.web.exception.InvalidCredentialsException
 import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -144,25 +146,3 @@ class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse)
     }
 }
-
-/**
- * Standard error response structure for API errors
- */
-data class ErrorResponse(
-    val timestamp: LocalDateTime,
-    val status: Int,
-    val error: String,
-    val message: String
-)
-
-/**
- * Validation error response with field-level errors
- */
-data class ValidationErrorResponse(
-    val timestamp: LocalDateTime,
-    val status: Int,
-    val error: String,
-    val message: String,
-    val errors: Map<String, String>
-)
-
