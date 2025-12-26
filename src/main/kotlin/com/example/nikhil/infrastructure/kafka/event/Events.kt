@@ -57,12 +57,14 @@ enum class OrderAction {
     DELIVERED,
     CANCELLED,
     REFUNDED,
+
     // Cart-specific actions
     CART_CREATED,
     ITEM_ADDED,
     ITEM_REMOVED,
     ITEM_UPDATED,
     CART_CLEARED,
+
     // Payment-specific actions
     CHECKOUT_STARTED,
     PAYMENT_PENDING,

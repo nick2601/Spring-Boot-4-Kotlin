@@ -78,13 +78,15 @@ class StripeController(
     )
     fun getCheckoutSession(@PathVariable sessionId: String): ResponseEntity<Map<String, Any>> {
         val session = stripeService.getCheckoutSession(sessionId)
-        return ResponseEntity.ok(mapOf(
-            "sessionId" to session.id,
-            "status" to session.status,
-            "paymentStatus" to session.paymentStatus,
-            "amountTotal" to session.amountTotal,
-            "currency" to session.currency
-        ))
+        return ResponseEntity.ok(
+            mapOf(
+                "sessionId" to session.id,
+                "status" to session.status,
+                "paymentStatus" to session.paymentStatus,
+                "amountTotal" to session.amountTotal,
+                "currency" to session.currency
+            )
+        )
     }
 
     /**
@@ -94,11 +96,13 @@ class StripeController(
     @Operation(summary = "Payment success callback")
     fun paymentSuccess(@RequestParam("session_id") sessionId: String): ResponseEntity<PaymentSuccessResponse> {
         logger.info("Payment success callback for session: $sessionId")
-        return ResponseEntity.ok(PaymentSuccessResponse(
-            success = true,
-            message = "Payment completed successfully!",
-            paymentId = sessionId
-        ))
+        return ResponseEntity.ok(
+            PaymentSuccessResponse(
+                success = true,
+                message = "Payment completed successfully!",
+                paymentId = sessionId
+            )
+        )
     }
 
     /**
@@ -108,10 +112,12 @@ class StripeController(
     @Operation(summary = "Payment cancel callback")
     fun paymentCancel(): ResponseEntity<PaymentSuccessResponse> {
         logger.info("Payment cancelled by user")
-        return ResponseEntity.ok(PaymentSuccessResponse(
-            success = false,
-            message = "Payment was cancelled"
-        ))
+        return ResponseEntity.ok(
+            PaymentSuccessResponse(
+                success = false,
+                message = "Payment was cancelled"
+            )
+        )
     }
 
     /**

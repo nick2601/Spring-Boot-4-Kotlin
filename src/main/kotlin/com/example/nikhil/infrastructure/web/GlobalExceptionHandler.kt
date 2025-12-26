@@ -116,7 +116,11 @@ class GlobalExceptionHandler {
     @ExceptionHandler(Exception::class)
     fun handleGenericException(ex: Exception): ResponseEntity<ErrorResponse> {
         logger.error("Unexpected error occurred", ex)
-        return createErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "An unexpected error occurred")
+        return createErrorResponse(
+            HttpStatus.INTERNAL_SERVER_ERROR,
+            "Internal Server Error",
+            "An unexpected error occurred"
+        )
     }
 
     private fun createErrorResponse(status: HttpStatus, error: String, message: String): ResponseEntity<ErrorResponse> {

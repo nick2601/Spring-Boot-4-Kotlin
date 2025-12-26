@@ -5,7 +5,7 @@ import com.example.nikhil.infrastructure.persistence.entity.CartStatus
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.stereotype.Repository
-import java.util.Optional
+import java.util.*
 
 /**
  * Repository for Cart entity CRUD operations

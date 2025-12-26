@@ -8,11 +8,10 @@ import com.example.nikhil.infrastructure.persistence.repository.UserRepository
 import com.example.nikhil.infrastructure.security.JwtTokenUtil
 import com.example.nikhil.infrastructure.web.dto.AuthRequest
 import com.example.nikhil.infrastructure.web.dto.AuthResponse
-import com.example.nikhil.infrastructure.security.TokenPair
 import com.example.nikhil.infrastructure.web.dto.UserDto
 import org.slf4j.LoggerFactory
-import org.springframework.stereotype.Service
 import org.springframework.security.crypto.password.PasswordEncoder
+import org.springframework.stereotype.Service
 import java.util.*
 
 /**

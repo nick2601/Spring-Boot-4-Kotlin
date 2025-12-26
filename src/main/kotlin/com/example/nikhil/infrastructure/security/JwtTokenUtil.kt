@@ -60,7 +60,14 @@ class JwtTokenUtil(
      * Generate Refresh Token (long-lived, for getting new access tokens)
      */
     fun generateRefreshToken(email: String, userId: Long?): String {
-        return generateTokenInternal(email, userId, null, emptyList(), TOKEN_TYPE_REFRESH, jwtConfig.refreshToken.expiration)
+        return generateTokenInternal(
+            email,
+            userId,
+            null,
+            emptyList(),
+            TOKEN_TYPE_REFRESH,
+            jwtConfig.refreshToken.expiration
+        )
     }
 
     /**

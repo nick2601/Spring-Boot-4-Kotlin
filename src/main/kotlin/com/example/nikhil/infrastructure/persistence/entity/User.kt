@@ -42,7 +42,12 @@ class User(
     @Transient
     var datetime: LocalDateTime? = LocalDateTime.now(),
 
-    @OneToMany(mappedBy = "user", cascade = [CascadeType.PERSIST, CascadeType.REMOVE], orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(
+        mappedBy = "user",
+        cascade = [CascadeType.PERSIST, CascadeType.REMOVE],
+        orphanRemoval = true,
+        fetch = FetchType.LAZY
+    )
     @JsonIgnore
     val addresses: MutableList<Address> = mutableListOf(),
 

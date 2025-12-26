@@ -48,7 +48,8 @@ class JwtAuthenticationFilter(
 
                     // Check if token is valid (and is an access token)
                     if (jwtTokenUtil.validateToken(token, userDetails.username) &&
-                        jwtTokenUtil.isAccessToken(token)) {
+                        jwtTokenUtil.isAccessToken(token)
+                    ) {
 
                         val authToken = UsernamePasswordAuthenticationToken(
                             userDetails,

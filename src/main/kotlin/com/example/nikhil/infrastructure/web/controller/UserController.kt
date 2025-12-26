@@ -1,7 +1,9 @@
 package com.example.nikhil.infrastructure.web.controller
 
 import com.example.nikhil.application.service.UserService
-import com.example.nikhil.infrastructure.web.dto.*
+import com.example.nikhil.infrastructure.web.dto.ChangePasswordRequest
+import com.example.nikhil.infrastructure.web.dto.RegisterUserRequest
+import com.example.nikhil.infrastructure.web.dto.UserDto
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content

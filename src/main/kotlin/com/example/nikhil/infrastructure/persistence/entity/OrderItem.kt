@@ -51,7 +51,8 @@ class OrderItem(
         return subtotal
     }
 
-    override fun toString(): String = "OrderItem(id=$id, productName=$productName, quantity=$quantity, subtotal=$subtotal)"
+    override fun toString(): String =
+        "OrderItem(id=$id, productName=$productName, quantity=$quantity, subtotal=$subtotal)"
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

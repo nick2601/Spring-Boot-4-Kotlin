@@ -147,16 +147,20 @@ class CartService(
             logger.debug("Updated quantity for product ${request.productId} in cart $cartId")
 
             // Publish item quantity updated event
-            publishCartItemEvent(cartId, userId, request.productId, product.name ?: "Unknown",
-                item.quantity, "ITEM_QUANTITY_UPDATED", "Item quantity increased")
+            publishCartItemEvent(
+                cartId, userId, request.productId, product.name ?: "Unknown",
+                item.quantity, "ITEM_QUANTITY_UPDATED", "Item quantity increased"
+            )
         } else {
             val newItem = CartItem(cart = cart, product = product, quantity = request.quantity)
             cartItemRepository.save(newItem)
             logger.debug("Added new product ${request.productId} to cart $cartId")
 
             // Publish item added event
-            publishCartItemEvent(cartId, userId, request.productId, product.name ?: "Unknown",
-                request.quantity, "ITEM_ADDED", "New item added to cart")
+            publishCartItemEvent(
+                cartId, userId, request.productId, product.name ?: "Unknown",
+                request.quantity, "ITEM_ADDED", "New item added to cart"
+            )
         }
 
         return getUpdatedCart(cartId)
@@ -184,8 +188,10 @@ class CartService(
         logger.info("Item quantity updated in cart: $cartId")
 
         // Publish item quantity updated event
-        publishCartItemEvent(cartId, userId, productId, productName,
-            request.quantity, "ITEM_QUANTITY_UPDATED", "Item quantity changed to ${request.quantity}")
+        publishCartItemEvent(
+            cartId, userId, productId, productName,
+            request.quantity, "ITEM_QUANTITY_UPDATED", "Item quantity changed to ${request.quantity}"
+        )
 
         return getUpdatedCart(cartId)
     }
@@ -210,8 +216,10 @@ class CartService(
         logger.info("Item removed from cart: $cartId")
 
         // Publish item removed event
-        publishCartItemEvent(cartId, userId, productId, productName,
-            0, "ITEM_REMOVED", "Item removed from cart")
+        publishCartItemEvent(
+            cartId, userId, productId, productName,
+            0, "ITEM_REMOVED", "Item removed from cart"
+        )
 
         return getUpdatedCart(cartId)
     }

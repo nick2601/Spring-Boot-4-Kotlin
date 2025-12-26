@@ -103,19 +103,23 @@ class AuthController(
         @RequestHeader("Authorization", required = false) authHeader: String?
     ): ResponseEntity<Map<String, Any>> {
         if (authHeader.isNullOrBlank()) {
-            return ResponseEntity.status(401).body(mapOf(
-                "valid" to false,
-                "message" to "No Authorization header provided"
-            ))
+            return ResponseEntity.status(401).body(
+                mapOf(
+                    "valid" to false,
+                    "message" to "No Authorization header provided"
+                )
+            )
         }
 
         val token = authHeader.removePrefix("Bearer ").trim()
 
         if (token.isEmpty()) {
-            return ResponseEntity.status(401).body(mapOf(
-                "valid" to false,
-                "message" to "No token provided"
-            ))
+            return ResponseEntity.status(401).body(
+                mapOf(
+                    "valid" to false,
+                    "message" to "No token provided"
+                )
+            )
         }
 
         return try {
@@ -152,16 +156,20 @@ class AuthController(
 
                 ResponseEntity.ok(response)
             } else {
-                ResponseEntity.status(401).body(mapOf(
-                    "valid" to false,
-                    "message" to "Token is invalid or expired"
-                ))
+                ResponseEntity.status(401).body(
+                    mapOf(
+                        "valid" to false,
+                        "message" to "Token is invalid or expired"
+                    )
+                )
             }
         } catch (e: Exception) {
-            ResponseEntity.status(401).body(mapOf(
-                "valid" to false,
-                "message" to "Token validation failed: ${e.message}"
-            ))
+            ResponseEntity.status(401).body(
+                mapOf(
+                    "valid" to false,
+                    "message" to "Token validation failed: ${e.message}"
+                )
+            )
         }
     }
 
@@ -201,11 +209,13 @@ class AuthController(
             authService.publishLogoutEvent(it)
         }
 
-        return ResponseEntity.ok(mapOf(
-            "success" to true,
-            "message" to "Logout successful. Please remove the token from client storage.",
-            "email" to (email ?: "unknown")
-        ))
+        return ResponseEntity.ok(
+            mapOf(
+                "success" to true,
+                "message" to "Logout successful. Please remove the token from client storage.",
+                "email" to (email ?: "unknown")
+            )
+        )
     }
 
     @PostMapping("/refresh")
@@ -223,20 +233,24 @@ class AuthController(
         @RequestBody request: RefreshTokenRequest
     ): ResponseEntity<Any> {
         if (request.refreshToken.isBlank()) {
-            return ResponseEntity.status(401).body(mapOf(
-                "success" to false,
-                "message" to "No refresh token provided"
-            ))
+            return ResponseEntity.status(401).body(
+                mapOf(
+                    "success" to false,
+                    "message" to "No refresh token provided"
+                )
+            )
         }
 
         return try {
             val response = authService.refreshTokens(request.refreshToken)
             ResponseEntity.ok(response)
         } catch (e: Exception) {
-            ResponseEntity.status(401).body(mapOf(
-                "success" to false,
-                "message" to "Token refresh failed: ${e.message}"
-            ))
+            ResponseEntity.status(401).body(
+                mapOf(
+                    "success" to false,
+                    "message" to "Token refresh failed: ${e.message}"
+                )
+            )
         }
     }
 
@@ -255,17 +269,21 @@ class AuthController(
         @RequestHeader("Authorization", required = false) authHeader: String?
     ): ResponseEntity<Map<String, Any>> {
         if (authHeader.isNullOrBlank()) {
-            return ResponseEntity.badRequest().body(mapOf(
-                "error" to "No Authorization header provided"
-            ))
+            return ResponseEntity.badRequest().body(
+                mapOf(
+                    "error" to "No Authorization header provided"
+                )
+            )
         }
 
         val token = authHeader.removePrefix("Bearer ").trim()
 
         if (token.isEmpty()) {
-            return ResponseEntity.badRequest().body(mapOf(
-                "error" to "No token provided"
-            ))
+            return ResponseEntity.badRequest().body(
+                mapOf(
+                    "error" to "No token provided"
+                )
+            )
         }
 
         return try {
@@ -273,9 +291,11 @@ class AuthController(
             val tokenInfo = authService.getTokenInfo(token)
 
             if (tokenInfo.email == null) {
-                return ResponseEntity.badRequest().body(mapOf(
-                    "error" to "Failed to decode token"
-                ))
+                return ResponseEntity.badRequest().body(
+                    mapOf(
+                        "error" to "Failed to decode token"
+                    )
+                )
             }
 
             val response = mutableMapOf<String, Any>(
@@ -312,9 +332,11 @@ class AuthController(
 
             ResponseEntity.ok(response)
         } catch (e: Exception) {
-            ResponseEntity.badRequest().body(mapOf(
-                "error" to "Failed to decode token: ${e.message}"
-            ))
+            ResponseEntity.badRequest().body(
+                mapOf(
+                    "error" to "Failed to decode token: ${e.message}"
+                )
+            )
         }
     }
 }

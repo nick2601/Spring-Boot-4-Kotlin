@@ -1,10 +1,6 @@
 package com.example.nikhil.infrastructure.web.dto
 
-import jakarta.validation.constraints.DecimalMin
-import jakarta.validation.constraints.Digits
-import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.Positive
-import jakarta.validation.constraints.Size
+import jakarta.validation.constraints.*
 import java.math.BigDecimal
 
 /**
@@ -23,7 +19,11 @@ data class ProductDto(
 
     @field:Positive(message = "Price must be positive")
     @field:DecimalMin(value = "0.01", message = "Price must be at least 0.01")
-    @field:Digits(integer = 10, fraction = 2, message = "Price must have at most 10 integer digits and 2 decimal places")
+    @field:Digits(
+        integer = 10,
+        fraction = 2,
+        message = "Price must have at most 10 integer digits and 2 decimal places"
+    )
     val price: BigDecimal? = null,
 
     @field:Positive(message = "Category ID must be positive")

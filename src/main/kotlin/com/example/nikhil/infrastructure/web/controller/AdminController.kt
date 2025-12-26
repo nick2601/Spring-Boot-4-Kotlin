@@ -2,7 +2,6 @@ package com.example.nikhil.infrastructure.web.controller
 
 import com.example.nikhil.application.service.AdminService
 import com.example.nikhil.application.service.UserService
-import com.example.nikhil.infrastructure.persistence.entity.RoleName
 import com.example.nikhil.infrastructure.web.dto.UserDto
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -57,17 +56,21 @@ class AdminController(
             val role = adminService.parseRoleName(roleName)
             val user = adminService.assignRoleToUser(userId, role)
 
-            ResponseEntity.ok(mapOf(
-                "success" to true,
-                "message" to "Role $roleName assigned to user ${user.email}",
-                "userId" to userId,
-                "roles" to user.getRoleNames()
-            ))
+            ResponseEntity.ok(
+                mapOf(
+                    "success" to true,
+                    "message" to "Role $roleName assigned to user ${user.email}",
+                    "userId" to userId,
+                    "roles" to user.getRoleNames()
+                )
+            )
         } catch (e: IllegalArgumentException) {
-            ResponseEntity.badRequest().body(mapOf(
-                "success" to false,
-                "message" to e.message.orEmpty()
-            ))
+            ResponseEntity.badRequest().body(
+                mapOf(
+                    "success" to false,
+                    "message" to e.message.orEmpty()
+                )
+            )
         }
     }
 
@@ -81,17 +84,21 @@ class AdminController(
             val role = adminService.parseRoleName(roleName)
             val user = adminService.removeRoleFromUser(userId, role)
 
-            ResponseEntity.ok(mapOf(
-                "success" to true,
-                "message" to "Role $roleName removed from user ${user.email}",
-                "userId" to userId,
-                "roles" to user.getRoleNames()
-            ))
+            ResponseEntity.ok(
+                mapOf(
+                    "success" to true,
+                    "message" to "Role $roleName removed from user ${user.email}",
+                    "userId" to userId,
+                    "roles" to user.getRoleNames()
+                )
+            )
         } catch (e: IllegalArgumentException) {
-            ResponseEntity.badRequest().body(mapOf(
-                "success" to false,
-                "message" to e.message.orEmpty()
-            ))
+            ResponseEntity.badRequest().body(
+                mapOf(
+                    "success" to false,
+                    "message" to e.message.orEmpty()
+                )
+            )
         }
     }
 
@@ -100,13 +107,15 @@ class AdminController(
     fun getUserRoles(@PathVariable userId: Long): ResponseEntity<Map<String, Any>> {
         val user = adminService.getUserById(userId)
 
-        return ResponseEntity.ok(mapOf(
-            "userId" to userId,
-            "email" to (user.email ?: ""),
-            "roles" to user.getRoleNames(),
-            "isAdmin" to user.isAdmin(),
-            "isCustomer" to user.isCustomer()
-        ))
+        return ResponseEntity.ok(
+            mapOf(
+                "userId" to userId,
+                "email" to (user.email ?: ""),
+                "roles" to user.getRoleNames(),
+                "isAdmin" to user.isAdmin(),
+                "isCustomer" to user.isCustomer()
+            )
+        )
     }
 
     @GetMapping("/roles")
@@ -120,13 +129,15 @@ class AdminController(
     fun getStats(): ResponseEntity<Map<String, Any>> {
         val stats = adminService.getSystemStats()
 
-        return ResponseEntity.ok(mapOf(
-            "totalUsers" to stats.totalUsers,
-            "adminCount" to stats.adminCount,
-            "customerCount" to stats.customerCount,
-            "usersWithNoRoles" to stats.usersWithNoRoles,
-            "roles" to stats.availableRoles
-        ))
+        return ResponseEntity.ok(
+            mapOf(
+                "totalUsers" to stats.totalUsers,
+                "adminCount" to stats.adminCount,
+                "customerCount" to stats.customerCount,
+                "usersWithNoRoles" to stats.usersWithNoRoles,
+                "roles" to stats.availableRoles
+            )
+        )
     }
 }
 

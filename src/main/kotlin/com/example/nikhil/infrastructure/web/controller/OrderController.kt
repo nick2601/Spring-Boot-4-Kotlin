@@ -162,7 +162,7 @@ class OrderController(
         @Parameter(description = "Page size") @RequestParam(defaultValue = "10") size: Int
     ): ResponseEntity<OrderHistoryResponse> {
         // Get user ID from authentication (you'll need to implement this based on your user lookup)
-        val email = authentication.name
+        authentication.name
         // For now, return a placeholder - you should get userId from email
         return ResponseEntity.ok(
             OrderHistoryResponse(
