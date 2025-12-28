@@ -6,19 +6,16 @@ import jakarta.validation.constraints.NotNull
 
 /**
  * Request to create a Stripe checkout session
+ * NOTE: userId is intentionally not part of the client request. Server derives it from authentication.
  */
 @Schema(description = "Create checkout session request")
 data class CreateCheckoutRequest(
     @Schema(description = "Cart ID to checkout", example = "1", required = true)
     @field:NotNull(message = "Cart ID is required")
-    val cartId: Long,
-
-    @Schema(description = "User ID", example = "1", required = true)
-    @field:NotNull(message = "User ID is required")
-    val userId: Long,
+    var cartId: Long,
 
     @Schema(description = "Currency code", example = "usd")
-    val currency: String = "usd"
+    var currency: String = "usd"
 )
 
 /**
@@ -27,13 +24,13 @@ data class CreateCheckoutRequest(
 @Schema(description = "Checkout session response")
 data class CheckoutSessionResponse(
     @Schema(description = "Stripe session ID")
-    val sessionId: String,
+    var sessionId: String,
 
     @Schema(description = "Checkout URL to redirect user")
-    val checkoutUrl: String,
+    var checkoutUrl: String,
 
     @Schema(description = "Total amount in cents")
-    val amount: Long
+    var amount: Long
 )
 
 /**
@@ -44,16 +41,16 @@ data class CreatePaymentIntentRequest(
     @Schema(description = "Amount in cents", example = "5000", required = true)
     @field:NotNull(message = "Amount is required")
     @field:Min(value = 50, message = "Minimum amount is 50 cents")
-    val amount: Long,
+    var amount: Long,
 
     @Schema(description = "Currency code", example = "usd")
-    val currency: String = "usd",
+    var currency: String = "usd",
 
     @Schema(description = "User ID", example = "1")
-    val userId: Long? = null,
+    var userId: Long? = null,
 
     @Schema(description = "Description of the payment")
-    val description: String? = null
+    var description: String? = null
 )
 
 /**
@@ -91,4 +88,3 @@ data class PaymentSuccessResponse(
     @Schema(description = "Session or Payment Intent ID")
     val paymentId: String? = null
 )
-

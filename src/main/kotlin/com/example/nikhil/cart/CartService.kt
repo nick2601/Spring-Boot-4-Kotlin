@@ -19,8 +19,6 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 
-// ...existing code from CartService.kt, with updated package and imports...
-
 /**
  * Cart Service
  * Single Responsibility: Handles cart-related business operations
@@ -125,6 +123,7 @@ class CartService(
 
     /**
      * Add item to cart by cartId
+     * Simplified: upsert item quantity in one place and publish a single event.
      */
     @Transactional
     fun addItemToCart(cartId: Long, request: AddToCartRequest): CartDto {
@@ -135,31 +134,28 @@ class CartService(
         val product = productRepository.findById(request.productId)
             .orElseThrow { NoSuchElementException("Product not found with id: ${request.productId}") }
 
-        val existingItem = cartItemRepository.findByCartIdAndProductId(cartId, request.productId)
+        val existingItemOptional = cartItemRepository.findByCartIdAndProductId(cartId, request.productId)
         val userId = cart.user?.id ?: 0L
+        val productName = product.name ?: "Unknown"
 
-        if (existingItem.isPresent) {
-            val item = existingItem.get()
-            item.quantity += request.quantity
-            cartItemRepository.save(item)
-            logger.debug("Updated quantity for product ${request.productId} in cart $cartId")
+        // Upsert logic: compute the new quantity and persist
+        val item = existingItemOptional.orElse(null)?.let { existing ->
+            existing.apply { quantity += request.quantity }
+        } ?: CartItem(cart = cart, product = product, quantity = request.quantity)
 
-            // Publish item quantity updated event
-            publishCartItemEvent(
-                cartId, userId, request.productId, product.name ?: "Unknown",
-                item.quantity, "ITEM_QUANTITY_UPDATED", "Item quantity increased"
-            )
+        cartItemRepository.save(item)
+
+        // Publish a single, clear event type depending on whether the item existed
+        val (eventType, message) = if (existingItemOptional.isPresent) {
+            "ITEM_QUANTITY_UPDATED" to "Item quantity increased"
         } else {
-            val newItem = CartItem(cart = cart, product = product, quantity = request.quantity)
-            cartItemRepository.save(newItem)
-            logger.debug("Added new product ${request.productId} to cart $cartId")
-
-            // Publish item added event
-            publishCartItemEvent(
-                cartId, userId, request.productId, product.name ?: "Unknown",
-                request.quantity, "ITEM_ADDED", "New item added to cart"
-            )
+            "ITEM_ADDED" to "New item added to cart"
         }
+
+        publishCartItemEvent(
+            cartId, userId, request.productId, productName,
+            item.quantity, eventType, message
+        )
 
         return getUpdatedCart(cartId)
     }
@@ -304,27 +300,39 @@ class CartService(
 
     /**
      * Checkout cart - updates status and publishes event
+     * Only allows if the cart belongs to the authenticated user
+     * Optionally validates that total does not exceed maxTotal when provided
      */
     @Transactional
-    fun checkoutCart(cartId: Long): CartDto {
-        logger.info("Starting checkout for cart: $cartId")
+    fun checkoutCart(cartId: Long, userId: Long, maxTotal: BigDecimal? = null): CartDto {
+        logger.info("Starting checkout for cart: $cartId by user: $userId")
 
         val cart = getCartWithItemsOrThrow(cartId)
+
+        // Ensure the cart belongs to the authenticated user
+        if (cart.user?.id != userId) {
+            throw org.springframework.security.access.AccessDeniedException("You are not authorized to checkout this cart.")
+        }
 
         if (cart.items.isEmpty()) {
             throw IllegalStateException("Cannot checkout an empty cart")
         }
 
-        val userId = cart.user?.id ?: 0L
+        // Calculate total in a clear, single expression
+        val total: BigDecimal = cart.items.fold(BigDecimal.ZERO) { acc, it ->
+            val price = it.product?.price ?: BigDecimal.ZERO
+            acc + price.multiply(BigDecimal.valueOf(it.quantity.toLong()))
+        }
+
+        // If a maximum allowed total is provided, enforce it
+        if (maxTotal != null && total > maxTotal) {
+            throw IllegalStateException("Cart total $$total exceeds allowed maximum $$maxTotal")
+        }
+
         cart.status = CartStatus.CHECKOUT
         val updatedCart = cartRepository.save(cart)
 
-        // Calculate total
-        val total = cart.items.sumOf {
-            (it.product?.price ?: BigDecimal.ZERO) * BigDecimal(it.quantity)
-        }
-
-        // Publish checkout started event
+        // Publish checkout started event (include total)
         try {
             kafkaProducerService.publishOrderEvent(
                 OrderEvent(
@@ -401,9 +409,4 @@ class CartService(
     private fun getCartItemOrThrow(cartId: Long, productId: Long): CartItem =
         cartItemRepository.findByCartIdAndProductId(cartId, productId)
             .orElseThrow { NoSuchElementException("Product $productId not found in cart $cartId") }
-
-    /**
-     * Helper to save cart and return DTO
-     */
-    private fun saveCartAndReturnDto(cart: Cart): CartDto = cartMapper.toDto(cartRepository.save(cart))
 }

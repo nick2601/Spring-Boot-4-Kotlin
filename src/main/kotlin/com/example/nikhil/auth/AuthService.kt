@@ -1,59 +1,39 @@
 package com.example.nikhil.auth
+
 import com.example.nikhil.auth.dto.AuthRequest
 import com.example.nikhil.auth.dto.AuthResponse
 import com.example.nikhil.auth.dto.ChangePasswordRequest
 import com.example.nikhil.auth.dto.RegisterUserRequest
 import com.example.nikhil.auth.dto.TokenInfo
 import com.example.nikhil.auth.dto.TokenPair
+import com.example.nikhil.auth.dto.TokenValidationResponse
 import com.example.nikhil.common.kafka.event.UserAction
 import com.example.nikhil.common.kafka.event.UserEvent
 import com.example.nikhil.common.kafka.producer.KafkaProducerService
-import com.example.nikhil.user.mapper.UserMapper
-import com.example.nikhil.user.entity.User
+import com.example.nikhil.user.UserService
 import com.example.nikhil.user.dto.UserDto
+import com.example.nikhil.user.entity.User
 import com.example.nikhil.common.exception.InvalidCredentialsException
-import com.example.nikhil.auth.repository.AuthRepository
-import com.example.nikhil.user.entity.RoleName
-import com.example.nikhil.user.repository.RoleRepository
-import com.example.nikhil.user.repository.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 
 /**
  * Authentication Use Case
- * Handles login, token generation, password verification, and authenticated user operations
- *
- * Responsibilities:
- * - User authentication and authorization
- * - JWT token lifecycle management
- * - Authentication event publishing
- * - Current user operations
- *
- * Delegates to:
- * - JwtService: Token generation and parsing
- * - PasswordEncoder: Password verification
- * - UserRepository: User data access
- * - KafkaProducerService: Event publishing
- * - UserMapper: Entity-DTO conversion
+ * Handles login, token generation, and authentication-related operations
  */
 @Service
 class AuthService(
-    private val authRepository: AuthRepository,
+    private val userService: UserService,
     private val passwordEncoder: PasswordEncoder,
     private val jwtService: JwtService,
-    private val kafkaProducerService: KafkaProducerService,
-    private val userMapper: UserMapper,
-    private val userRepository: UserRepository,
-    private val roleRepository: RoleRepository
+    private val kafkaProducerService: KafkaProducerService
 ) {
     private val logger = LoggerFactory.getLogger(AuthService::class.java)
 
-    // Helper to get user roles with fallback
     private fun getUserRoles(user: User): List<String> =
         if (user.roles.isNotEmpty()) user.getRoleNames() else listOf("ROLE_CUSTOMER")
 
-    // Helper to create AuthResponse from user and token pair
     private fun createAuthResponse(user: User, tokenPair: TokenPair): AuthResponse =
         AuthResponse(
             accessToken = tokenPair.accessToken,
@@ -66,200 +46,104 @@ class AuthService(
             refreshTokenExpiresIn = tokenPair.refreshTokenExpiresIn
         )
 
-    /**
-     * Authenticate user and generate JWT token
-     * @param authRequest contains email and password
-     * @return AuthResponse with JWT token
-     * @throws InvalidCredentialsException if authentication fails
-     */
     fun login(authRequest: AuthRequest): AuthResponse {
         logger.debug("Attempting login for email: ${authRequest.email}")
 
-        val user = authRepository.findByEmail(authRequest.email)
-            ?: run {
-                logger.warn("Login failed: User not found for email: ${authRequest.email}")
-                throw InvalidCredentialsException("Invalid email or password")
-            }
+        val user = userService.getUserByEmail(authRequest.email)
+            ?: throw InvalidCredentialsException("Invalid email or password")
 
         if (!passwordEncoder.matches(authRequest.password, user.password)) {
-            logger.warn("Login failed: Invalid password for email: ${authRequest.email}")
             throw InvalidCredentialsException("Invalid email or password")
         }
 
-        // Generate both access and refresh tokens
         val tokenPair = jwtService.generateTokenPair(
             user.email, user.id, user.name, getUserRoles(user)
         )
-        logger.info("Login successful for email: ${authRequest.email}, userId: ${user.id}, roles: ${getUserRoles(user)}")
 
-        // Publish login event to Kafka
-        try {
-            kafkaProducerService.publishUserEvent(
-                UserEvent(
-                    eventType = "USER_LOGIN",
-                    userId = user.id!!,
-                    email = user.email!!,
-                    action = UserAction.LOGGED_IN,
-                    details = mapOf("ipAddress" to "unknown", "userAgent" to "unknown")
-                )
-            )
-        } catch (e: Exception) {
-            logger.warn("Failed to publish login event to Kafka: ${e.message}")
-        }
+        publishEvent(user, "USER_LOGIN", UserAction.LOGGED_IN, mapOf("ipAddress" to "unknown"))
 
         return createAuthResponse(user, tokenPair)
     }
 
-    /**
-     * Validate if a token is valid for the given email
-     */
-    fun validateToken(token: String, email: String): Boolean {
-        return jwtService.validateToken(token, email)
-    }
-
-    /**
-     * Extract email from JWT token
-     */
-    fun getEmailFromToken(token: String): String? {
-        return jwtService.getEmailFromToken(token)
-    }
-
-    /**
-     * Refresh JWT tokens using a valid refresh token
-     * @param refreshToken The refresh token
-     * @return New AuthResponse with fresh access and refresh tokens
-     * @throws InvalidCredentialsException if refresh token is invalid or expired
-     */
     fun refreshTokens(refreshToken: String): AuthResponse {
-        logger.info("Attempting to refresh tokens")
-
-        // Extract email from refresh token
         val email = jwtService.getEmailFromToken(refreshToken)
             ?: throw InvalidCredentialsException("Invalid refresh token")
 
-        // Validate it's actually a refresh token and not expired
         if (!jwtService.validateRefreshToken(refreshToken, email)) {
             throw InvalidCredentialsException("Refresh token is invalid or expired")
         }
 
-        val user = authRepository.findByEmail(email)
+        val user = userService.getUserByEmail(email)
             ?: throw InvalidCredentialsException("User not found")
 
-        // Generate new token pair
         val tokenPair = jwtService.generateTokenPair(
             user.email!!, user.id!!, user.name, getUserRoles(user)
         )
-        logger.info("Tokens refreshed successfully for email: $email, roles: ${getUserRoles(user)}")
 
         return createAuthResponse(user, tokenPair)
     }
 
-    /**
-     * Legacy method - generates only access token (backward compatibility)
-     */
-    fun refreshToken(email: String): String {
-        logger.info("Refreshing token for email: $email")
+    fun registerUser(request: RegisterUserRequest): UserDto = userService.registerUser(request)
 
-        val user = authRepository.findByEmail(email)
-            ?: throw InvalidCredentialsException("User not found")
+    fun changePassword(request: ChangePasswordRequest) = userService.changePassword(request)
 
-        return jwtService.generateAccessToken(
-            user.email, user.id, user.name, getUserRoles(user)
-        )
-    }
+    fun getCurrentUser(email: String): UserDto = userService.getUserDtoByEmail(email)
 
-    /**
-     * Publish logout event to Kafka
-     */
-    fun publishLogoutEvent(email: String) {
-        val user = authRepository.findByEmail(email)
-        user?.let {
-            try {
-                kafkaProducerService.publishUserEvent(
-                    UserEvent(
-                        eventType = "USER_LOGOUT",
-                        userId = it.id!!,
-                        email = email,
-                        action = UserAction.LOGGED_OUT,
-                        details = null
-                    )
-                )
-                logger.info("Published logout event for user: $email")
-            } catch (e: Exception) {
-                logger.warn("Failed to publish logout event to Kafka: ${e.message}")
-            }
-        }
-    }
+    fun validateToken(token: String, email: String) = jwtService.validateToken(token, email)
 
-    /**
-     * Get current authenticated user by email
-     * @param email User's email from authentication context
-     * @return UserDto representing the current user
-     * @throws NoSuchElementException if user not found
-     */
-    fun getCurrentUser(email: String): UserDto {
-        logger.debug("Fetching current user with email: $email")
-        val user = authRepository.findByEmail(email)
-            ?: throw NoSuchElementException("User not found with email: $email")
-        return userMapper.toDto(user)
-    }
+    fun getEmailFromToken(token: String) = jwtService.getEmailFromToken(token)
 
-    /**
-     * Get detailed token information
-     * Extracts all claims and metadata from JWT token
-     * @param token JWT token string
-     * @return TokenInfo containing all token claims
-     */
     fun getTokenInfo(token: String): TokenInfo {
         return TokenInfo(
             email = jwtService.getEmailFromToken(token),
             userId = jwtService.getUserIdFromToken(token),
             name = jwtService.getNameFromToken(token),
             roles = jwtService.getRolesFromToken(token),
-            tokenId = null, // Removed: jwtService.getTokenIdFromToken(token)
-            issuer = null,  // Removed: jwtService.getIssuerFromToken(token)
-            issuedAt = null, // Removed: jwtService.getIssuedAtFromToken(token)
+            tokenId = null,
+            issuer = null,
+            issuedAt = null,
             expiration = jwtService.getExpirationFromToken(token)
         )
     }
 
-    /**
-     * Register new user with password encoding and default CUSTOMER role
-     */
-    fun registerUser(request: RegisterUserRequest): UserDto {
-        logger.info("Registering new user with email: ${request.email}")
-        if (userRepository.existsByEmail(request.email)) {
-            logger.warn("Registration failed: Email already exists: ${request.email}")
-            throw IllegalArgumentException("Email already exists: ${request.email}")
+    fun validateTokenDetailed(token: String): TokenValidationResponse {
+        val email = jwtService.getEmailFromToken(token)
+        if (email != null && jwtService.validateToken(token, email)) {
+            return TokenValidationResponse(
+                valid = true,
+                message = "Token is valid",
+                email = email,
+                userId = jwtService.getUserIdFromToken(token),
+                name = jwtService.getNameFromToken(token),
+                roles = jwtService.getRolesFromToken(token),
+                expiresAt = jwtService.getExpirationFromToken(token)?.toString(),
+                tokenType = jwtService.getTokenType(token) ?: "unknown",
+                timeUntilExpirySeconds = jwtService.getTimeUntilExpirySeconds(token),
+                needsRefresh = jwtService.needsRefresh(token)
+            )
         }
-        val user = User(
-            name = request.name,
-            email = request.email,
-            password = passwordEncoder.encode(request.password)
-        )
-        // Assign default CUSTOMER role
-        roleRepository.findByName(RoleName.ROLE_CUSTOMER).ifPresent { role ->
-            user.addRole(role)
-            logger.debug("Assigned ROLE_CUSTOMER to new user: ${request.email}")
-        }
-        val savedUser = userRepository.save(user)
-        logger.info("User registered successfully with id: ${savedUser.id}, roles: ${savedUser.getRoleNames()}")
-        return userMapper.toDto(savedUser)
+        return TokenValidationResponse(valid = false, message = "Token is invalid or expired")
     }
 
-    /**
-     * Change user password using ChangePasswordRequest DTO
-     */
-    fun changePassword(request: ChangePasswordRequest) {
-        logger.info("Changing password for user id: ${request.id}")
-        val user = userRepository.findById(request.id)
-            .orElseThrow { NoSuchElementException("User not found with id: ${request.id}") }
-        if (!passwordEncoder.matches(request.oldPassword, user.password)) {
-            logger.warn("Password change failed: Invalid old password for user id: ${request.id}")
-            throw IllegalArgumentException("Invalid old password")
+    fun publishLogoutEvent(email: String) {
+        userService.getUserByEmail(email)?.let {
+            publishEvent(it, "USER_LOGOUT", UserAction.LOGGED_OUT)
         }
-        user.password = passwordEncoder.encode(request.newPassword)
-        userRepository.save(user)
-        logger.info("Password changed successfully for user id: ${request.id}")
+    }
+
+    private fun publishEvent(user: User, type: String, action: UserAction, details: Map<String, String>? = null) {
+        try {
+            kafkaProducerService.publishUserEvent(
+                UserEvent(
+                    eventType = type,
+                    userId = user.id!!,
+                    email = user.email!!,
+                    action = action,
+                    details = details
+                )
+            )
+        } catch (e: Exception) {
+            logger.warn("Failed to publish $type event: ${e.message}")
+        }
     }
 }

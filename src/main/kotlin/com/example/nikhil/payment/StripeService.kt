@@ -41,9 +41,10 @@ class StripeService(
 
     /**
      * Create a Stripe Checkout Session for cart checkout
+     * userId is provided by the server (derived from authentication)
      */
-    fun createCheckoutSession(request: CreateCheckoutRequest): CheckoutSessionResponse {
-        logger.info("Creating checkout session for cart: ${request.cartId}")
+    fun createCheckoutSession(request: CreateCheckoutRequest, userId: Long): CheckoutSessionResponse {
+        logger.info("Creating checkout session for cart: ${request.cartId} user: $userId")
 
         val cart = cartService.getCartById(request.cartId)
         val totalAmount = calculateTotalInCents(cart.totalPrice)
@@ -71,7 +72,7 @@ class StripeService(
             .setCancelUrl(cancelUrl)
             .addAllLineItem(lineItems)
             .putMetadata("cartId", request.cartId.toString())
-            .putMetadata("userId", request.userId.toString())
+            .putMetadata("userId", userId.toString())
             .build()
 
         val session = Session.create(params)
@@ -80,7 +81,7 @@ class StripeService(
 
         // Publish checkout session created event
         publishPaymentEvent(
-            userId = request.userId,
+            userId = userId,
             cartId = request.cartId,
             eventType = "CHECKOUT_SESSION_CREATED",
             action = OrderAction.CREATED,
@@ -258,22 +259,23 @@ class StripeService(
     }
 
     private fun handleChargeSucceeded(event: Event) {
-        logger.info("Charge succeeded")
+        // Use event id and type for clearer logging
+        logger.info("Charge succeeded event received: id=${event.id}, type=${event.type}")
         // Publish charge success event
         kafkaProducerService.publishMessage(
             "order-events",
             "charge",
-            """{"eventType": "CHARGE_SUCCEEDED", "timestamp": "${LocalDateTime.now()}"}"""
+            """{"eventType": "CHARGE_SUCCEEDED", "timestamp": "${LocalDateTime.now()}", "eventId": "${event.id}"}"""
         )
     }
 
     private fun handleChargeRefunded(event: Event) {
-        logger.info("Charge refunded")
+        logger.info("Charge refunded event received: id=${event.id}, type=${event.type}")
         // Publish refund event
         kafkaProducerService.publishMessage(
             "order-events",
             "refund",
-            """{"eventType": "CHARGE_REFUNDED", "timestamp": "${LocalDateTime.now()}"}"""
+            """{"eventType": "CHARGE_REFUNDED", "timestamp": "${LocalDateTime.now()}", "eventId": "${event.id}"}"""
         )
     }
 

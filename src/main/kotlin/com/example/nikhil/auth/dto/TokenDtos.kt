@@ -28,3 +28,19 @@ data class TokenInfo(
     val expiration: Date?
 )
 
+/**
+ * Token Validation Response DTO
+ * Contains validation status and token details
+ */
+data class TokenValidationResponse(
+    val valid: Boolean,
+    val message: String,
+    val email: String? = null,
+    val userId: Long? = null,
+    val name: String? = null,
+    val roles: List<String>? = null,
+    val expiresAt: String? = null,
+    val tokenType: String? = null,
+    val timeUntilExpirySeconds: Long? = null,
+    val needsRefresh: Boolean? = null
+)

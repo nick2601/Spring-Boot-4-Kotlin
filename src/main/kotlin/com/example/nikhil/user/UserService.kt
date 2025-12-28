@@ -1,21 +1,28 @@
 package com.example.nikhil.user
 
+import com.example.nikhil.auth.dto.ChangePasswordRequest
+import com.example.nikhil.auth.dto.RegisterUserRequest
 import com.example.nikhil.user.mapper.UserMapper
 import com.example.nikhil.user.entity.User
 import com.example.nikhil.user.dto.UserDto
+import com.example.nikhil.user.entity.RoleName
+import com.example.nikhil.user.repository.RoleRepository
 import com.example.nikhil.user.repository.UserRepository
 import org.slf4j.LoggerFactory
+import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 /**
  * User Use Case
- * Handles all user-related business operations
+ * Handles all user-related business operations including lifecycle and registration
  */
 @Service
 @Transactional(readOnly = true)
 class UserService(
     private val userRepository: UserRepository,
+    private val roleRepository: RoleRepository,
+    private val passwordEncoder: PasswordEncoder,
     private val userMapper: UserMapper
 ) {
     private val logger = LoggerFactory.getLogger(UserService::class.java)
@@ -66,10 +73,45 @@ class UserService(
     }
 
     /**
-     * Get user entity by name
+     * Register new user with password encoding and default CUSTOMER role
      */
-    fun getUserByName(name: String): User? {
-        return userRepository.findByName(name)
+    @Transactional
+    fun registerUser(request: RegisterUserRequest): UserDto {
+        logger.info("Registering new user with email: ${request.email}")
+        if (userRepository.existsByEmail(request.email)) {
+            logger.warn("Registration failed: Email already exists: ${request.email}")
+            throw IllegalArgumentException("Email already exists: ${request.email}")
+        }
+        val user = User(
+            name = request.name,
+            email = request.email,
+            password = passwordEncoder.encode(request.password)
+        )
+        // Assign default CUSTOMER role
+        roleRepository.findByName(RoleName.ROLE_CUSTOMER).ifPresent { role ->
+            user.addRole(role)
+            logger.debug("Assigned ROLE_CUSTOMER to new user: ${request.email}")
+        }
+        val savedUser = userRepository.save(user)
+        logger.info("User registered successfully with id: ${savedUser.id}")
+        return userMapper.toDto(savedUser)
+    }
+
+    /**
+     * Change user password
+     */
+    @Transactional
+    fun changePassword(request: ChangePasswordRequest) {
+        logger.info("Changing password for user id: ${request.id}")
+        val user = userRepository.findById(request.id)
+            .orElseThrow { NoSuchElementException("User not found with id: ${request.id}") }
+        if (!passwordEncoder.matches(request.oldPassword, user.password)) {
+            logger.warn("Password change failed: Invalid old password for user id: ${request.id}")
+            throw IllegalArgumentException("Invalid old password")
+        }
+        user.password = passwordEncoder.encode(request.newPassword)
+        userRepository.save(user)
+        logger.info("Password changed successfully for user id: ${request.id}")
     }
 
     /**

@@ -16,6 +16,10 @@ data class OrderDto(
     val paymentMethod: String?,
     val items: List<OrderItemDto>,
     val itemCount: Int,
+    val subtotal: BigDecimal,
+    val tax: BigDecimal,
+    val shippingCost: BigDecimal,
+    val totalAmount: BigDecimal,
     val createdAt: LocalDateTime?,
     val updatedAt: LocalDateTime?
 )

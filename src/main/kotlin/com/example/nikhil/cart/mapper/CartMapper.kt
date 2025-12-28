@@ -35,16 +35,12 @@ class CartMapper {
     }
 
     /**
-     * Convert list of Cart entities to list of CartDto
-     */
-    fun toDtoList(carts: List<Cart>): List<CartDto> = carts.map { toDto(it) }
-
-    /**
      * Convert CartItem entity to CartItemDto
      */
     fun toItemDto(item: CartItem): CartItemDto {
         val price = item.product?.price ?: BigDecimal.ZERO
-        val subtotal = price.multiply(BigDecimal(item.quantity))
+        // Use CartItem.getSubtotal() to centralize subtotal calculation
+        val subtotal = item.getSubtotal()
 
         return CartItemDto(
             id = item.id,
@@ -56,9 +52,4 @@ class CartMapper {
             addedAt = item.addedAt
         )
     }
-
-    /**
-     * Convert list of CartItem entities to list of CartItemDto
-     */
-    fun toItemDtoList(items: List<CartItem>): List<CartItemDto> = items.map { toItemDto(it) }
 }

@@ -9,6 +9,7 @@ import jakarta.validation.Valid
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -26,17 +27,18 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/payments")
 @Tag(name = "Payments", description = "Stripe payment endpoints")
 class StripeController(
-    private val stripeService: StripeService
+    private val stripeService: StripeService,
+    private val userService: com.example.nikhil.user.UserService
 ) {
     private val logger = LoggerFactory.getLogger(StripeController::class.java)
 
     /**
-     * Create a Stripe Checkout Session
+     * Create a Stripe Checkout Session (authenticated users only)
      */
     @PostMapping("/checkout")
     @Operation(
         summary = "Create checkout session",
-        description = "Creates a Stripe checkout session for cart payment"
+        description = "Creates a Stripe checkout session for cart payment. Authenticated users only."
     )
     @ApiResponses(
         value = [
@@ -46,9 +48,14 @@ class StripeController(
         ]
     )
     fun createCheckoutSession(
+        authentication: Authentication,
         @Valid @RequestBody request: CreateCheckoutRequest
     ): ResponseEntity<CheckoutSessionResponse> {
-        val response = stripeService.createCheckoutSession(request)
+        // Derive userId from authentication to ensure only owner can create session
+        val userDto = userService.getUserDtoByEmail(authentication.name)
+        val userId = userDto.id ?: throw IllegalStateException("Authenticated user has no id")
+
+        val response = stripeService.createCheckoutSession(request, userId)
         return ResponseEntity.ok(response)
     }
 

@@ -32,15 +32,10 @@ class JwtService(
         Keys.hmacShaKeyFor(jwtConfig.secret.toByteArray(StandardCharsets.UTF_8))
     }
 
-    fun generateToken(email: String): String = generateAccessToken(email, null, null, emptyList())
-
-    fun generateToken(email: String, userId: Long?, name: String?, roles: List<String>): String =
-        generateAccessToken(email, userId, name, roles)
-
     fun generateAccessToken(email: String?, userId: Long?, name: String?, roles: List<String>): String =
         generateTokenInternal(email, userId, name, roles, TOKEN_TYPE_ACCESS, jwtConfig.accessToken.expiration)
 
-    fun generateRefreshToken(email: String?, userId: Long?): String =
+    private fun generateRefreshToken(email: String?, userId: Long?): String =
         generateTokenInternal(email, userId, null, emptyList(), TOKEN_TYPE_REFRESH, jwtConfig.refreshToken.expiration)
 
     fun generateTokenPair(email: String?, userId: Long?, name: String?, roles: List<String>): TokenPair {
@@ -108,6 +103,7 @@ class JwtService(
 
     fun isAccessToken(token: String): Boolean = getTokenType(token) == TOKEN_TYPE_ACCESS
     fun isRefreshToken(token: String): Boolean = getTokenType(token) == TOKEN_TYPE_REFRESH
+
     fun validateToken(token: String, email: String): Boolean = try {
         val claims = getClaims(token)
         val tokenEmail = claims?.subject
@@ -118,15 +114,8 @@ class JwtService(
         logger.debug("Token validation error: ", e); false
     }
 
-    fun validateAccessToken(token: String, email: String): Boolean = validateToken(token, email) && isAccessToken(token)
     fun validateRefreshToken(token: String, email: String): Boolean =
         validateToken(token, email) && isRefreshToken(token)
-
-    fun isTokenExpired(token: String): Boolean = try {
-        val expiration = getExpirationFromToken(token); expiration?.before(Date()) ?: true
-    } catch (e: Exception) {
-        logger.debug("Error checking token expiration: ", e); true
-    }
 
     fun needsRefresh(token: String): Boolean {
         if (!jwtConfig.isAutoRefreshEnabled()) return false

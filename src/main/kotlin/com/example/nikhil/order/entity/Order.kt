@@ -4,6 +4,7 @@ import com.example.nikhil.order.OrderItem
 import com.example.nikhil.user.entity.User
 import jakarta.persistence.*
 import java.time.LocalDateTime
+import java.math.BigDecimal
 
 /**
  * Order entity - represents a completed e-commerce order
@@ -28,11 +29,35 @@ class Order(
     @Enumerated(EnumType.STRING)
     var status: OrderStatus = OrderStatus.PENDING,
 
+    // ===================== Financial columns (added to match DB migration V10) =====================
+    @Column(name = "subtotal", nullable = false)
+    var subtotal: BigDecimal = BigDecimal.ZERO,
+
+    @Column(name = "tax", nullable = false)
+    var tax: BigDecimal = BigDecimal.ZERO,
+
+    @Column(name = "shipping_cost", nullable = false)
+    var shippingCost: BigDecimal = BigDecimal.ZERO,
+
+    @Column(name = "total_amount", nullable = false)
+    var totalAmount: BigDecimal = BigDecimal.ZERO,
+
+    // ==============================================================================================
+
     @Column(name = "payment_id")
     var paymentId: String? = null,
 
     @Column(name = "payment_method")
     var paymentMethod: String? = null,
+
+    @Column(name = "shipping_address", columnDefinition = "TEXT")
+    var shippingAddress: String? = null,
+
+    @Column(name = "billing_address", columnDefinition = "TEXT")
+    var billingAddress: String? = null,
+
+    @Column(name = "notes", columnDefinition = "TEXT")
+    var notes: String? = null,
 
     @Column(name = "created_at", nullable = false, updatable = false)
     var createdAt: LocalDateTime = LocalDateTime.now(),

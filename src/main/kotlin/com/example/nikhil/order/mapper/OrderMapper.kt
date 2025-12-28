@@ -30,6 +30,10 @@ class OrderMapper {
             paymentMethod = order.paymentMethod,
             items = items,
             itemCount = items.sumOf { it.quantity },
+            subtotal = order.subtotal,
+            tax = order.tax,
+            shippingCost = order.shippingCost,
+            totalAmount = order.totalAmount,
             createdAt = order.createdAt,
             updatedAt = order.updatedAt
         )

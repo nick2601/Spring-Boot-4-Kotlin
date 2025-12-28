@@ -5,6 +5,7 @@ import com.example.nikhil.auth.dto.AuthResponse
 import com.example.nikhil.auth.dto.ChangePasswordRequest
 import com.example.nikhil.auth.dto.RefreshTokenRequest
 import com.example.nikhil.auth.dto.RegisterUserRequest
+import com.example.nikhil.auth.dto.TokenValidationResponse
 import com.example.nikhil.user.dto.UserDto
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -23,8 +24,7 @@ import java.util.Date
 @RequestMapping("/auth")
 @Tag(name = "Authentication", description = "User authentication endpoints")
 class AuthController(
-    private val authService: AuthService,
-    private val jwtService: JwtService
+    private val authService: AuthService
 ) {
 
     @PostMapping("/login")
@@ -91,7 +91,8 @@ class AuthController(
         value = [
             ApiResponse(
                 responseCode = "200",
-                description = "Token is valid"
+                description = "Token is valid",
+                content = [Content(schema = Schema(implementation = TokenValidationResponse::class))]
             ),
             ApiResponse(
                 responseCode = "401",
@@ -102,13 +103,10 @@ class AuthController(
     )
     fun validateToken(
         @RequestHeader("Authorization", required = false) authHeader: String?
-    ): ResponseEntity<Map<String, Any>> {
+    ): ResponseEntity<TokenValidationResponse> {
         if (authHeader.isNullOrBlank()) {
             return ResponseEntity.status(401).body(
-                mapOf(
-                    "valid" to false,
-                    "message" to "No Authorization header provided"
-                )
+                TokenValidationResponse(valid = false, message = "No Authorization header provided")
             )
         }
 
@@ -116,54 +114,15 @@ class AuthController(
 
         if (token.isEmpty()) {
             return ResponseEntity.status(401).body(
-                mapOf(
-                    "valid" to false,
-                    "message" to "No token provided"
-                )
+                TokenValidationResponse(valid = false, message = "No token provided")
             )
         }
 
-        return try {
-            val email = authService.getEmailFromToken(token)
-            if (email != null && authService.validateToken(token, email)) {
-                // Extract supported claims only
-                val userId = jwtService.getUserIdFromToken(token)
-                val name = jwtService.getNameFromToken(token)
-                val roles = jwtService.getRolesFromToken(token)
-                val expiration = jwtService.getExpirationFromToken(token)
-
-                val response = mutableMapOf<String, Any>(
-                    "valid" to true,
-                    "email" to email,
-                    "message" to "Token is valid"
-                )
-
-                userId?.let { response["userId"] = it }
-                name?.let { response["name"] = it }
-                if (roles.isNotEmpty()) response["roles"] = roles
-                expiration?.let { response["expiresAt"] = it.toString() }
-
-                // Add token refresh information
-                response["tokenType"] = jwtService.getTokenType(token) ?: "unknown"
-                response["timeUntilExpirySeconds"] = jwtService.getTimeUntilExpirySeconds(token)
-                response["needsRefresh"] = jwtService.needsRefresh(token)
-
-                ResponseEntity.ok(response)
-            } else {
-                ResponseEntity.status(401).body(
-                    mapOf(
-                        "valid" to false,
-                        "message" to "Token is invalid or expired"
-                    )
-                )
-            }
-        } catch (e: Exception) {
-            ResponseEntity.status(401).body(
-                mapOf(
-                    "valid" to false,
-                    "message" to "Token validation failed: ${e.message}"
-                )
-            )
+        val response = authService.validateTokenDetailed(token)
+        return if (response.valid) {
+            ResponseEntity.ok(response)
+        } else {
+            ResponseEntity.status(401).body(response)
         }
     }
 
@@ -183,14 +142,6 @@ class AuthController(
     fun logout(
         @RequestHeader("Authorization", required = false) authHeader: String?
     ): ResponseEntity<Map<String, Any>> {
-        // For JWT-based auth, logout is typically handled client-side
-        // by removing the token from storage.
-        //
-        // For enhanced security, you could:
-        // 1. Maintain a blacklist of invalidated tokens
-        // 2. Use short-lived tokens with refresh tokens
-        // 3. Store tokens in Redis and remove on logout
-
         val email = authHeader?.let {
             val token = it.removePrefix("Bearer ").trim()
             if (token.isNotEmpty()) {
@@ -198,7 +149,6 @@ class AuthController(
             } else null
         }
 
-        // Publish logout event to Kafka
         email?.let {
             authService.publishLogoutEvent(it)
         }
@@ -219,33 +169,15 @@ class AuthController(
     )
     @ApiResponses(
         value = [
-            ApiResponse(responseCode = "200", description = "Tokens refreshed successfully"),
+            ApiResponse(responseCode = "200", description = "Tokens refreshed successfully", content = [Content(schema = Schema(implementation = AuthResponse::class))]),
             ApiResponse(responseCode = "401", description = "Invalid or expired refresh token", content = [Content()])
         ]
     )
     fun refreshToken(
         @RequestBody request: RefreshTokenRequest
-    ): ResponseEntity<Any> {
-        if (request.refreshToken.isBlank()) {
-            return ResponseEntity.status(401).body(
-                mapOf(
-                    "success" to false,
-                    "message" to "No refresh token provided"
-                )
-            )
-        }
-
-        return try {
-            val response = authService.refreshTokens(request.refreshToken)
-            ResponseEntity.ok(response)
-        } catch (e: Exception) {
-            ResponseEntity.status(401).body(
-                mapOf(
-                    "success" to false,
-                    "message" to "Token refresh failed: ${e.message}"
-                )
-            )
-        }
+    ): ResponseEntity<AuthResponse> {
+        val response = authService.refreshTokens(request.refreshToken)
+        return ResponseEntity.ok(response)
     }
 
     @GetMapping("/token-info")
@@ -263,76 +195,68 @@ class AuthController(
         @RequestHeader("Authorization", required = false) authHeader: String?
     ): ResponseEntity<Map<String, Any>> {
         if (authHeader.isNullOrBlank()) {
-            return ResponseEntity.badRequest().body(
-                mapOf(
-                    "error" to "No Authorization header provided"
-                )
-            )
+            return ResponseEntity.badRequest().body(mapOf("error" to "No Authorization header provided"))
         }
 
         val token = authHeader.removePrefix("Bearer ").trim()
 
         if (token.isEmpty()) {
-            return ResponseEntity.badRequest().body(
-                mapOf(
-                    "error" to "No token provided"
-                )
-            )
+            return ResponseEntity.badRequest().body(mapOf("error" to "No token provided"))
         }
 
-        return try {
-            // Use AuthService to get all token information
-            val tokenInfo = authService.getTokenInfo(token)
+        val tokenInfo = authService.getTokenInfo(token)
 
-            if (tokenInfo.email == null) {
-                return ResponseEntity.badRequest().body(
-                    mapOf(
-                        "error" to "Failed to decode token"
-                    )
-                )
-            }
-
-            val response = mutableMapOf<String, Any>(
-                "standardClaims" to mutableMapOf<String, Any?>().apply {
-                    this["sub"] = tokenInfo.email
-                    tokenInfo.expiration?.let { this["exp"] = it.toString() }
-                },
-                "customClaims" to mutableMapOf<String, Any?>().apply {
-                    tokenInfo.userId?.let { this["userId"] = it }
-                    tokenInfo.name?.let { this["name"] = it }
-                    if (tokenInfo.roles.isNotEmpty()) this["roles"] = tokenInfo.roles
-                }
-            )
-
-            // Check if token is expired
-            tokenInfo.expiration?.let { exp ->
-                val now = Date()
-                response["isExpired"] = exp.before(now)
-                val timeLeft = exp.time - now.time
-                response["timeToExpiry"] = if (timeLeft > 0) {
-                    "${timeLeft / 1000 / 60} minutes"
-                } else {
-                    "Expired ${-timeLeft / 1000 / 60} minutes ago"
-                }
-            }
-
-            ResponseEntity.ok(response)
-        } catch (e: Exception) {
-            ResponseEntity.badRequest().body(
-                mapOf(
-                    "error" to "Failed to decode token: ${e.message}"
-                )
-            )
+        if (tokenInfo.email == null) {
+            return ResponseEntity.badRequest().body(mapOf("error" to "Failed to decode token"))
         }
+
+        val response = mutableMapOf<String, Any>(
+            "standardClaims" to mutableMapOf<String, Any?>().apply {
+                this["sub"] = tokenInfo.email
+                tokenInfo.expiration?.let { this["exp"] = it.toString() }
+            },
+            "customClaims" to mutableMapOf<String, Any?>().apply {
+                tokenInfo.userId?.let { this["userId"] = it }
+                tokenInfo.name?.let { this["name"] = it }
+                if (tokenInfo.roles.isNotEmpty()) this["roles"] = tokenInfo.roles
+            }
+        )
+
+        tokenInfo.expiration?.let { exp ->
+            val now = Date()
+            response["isExpired"] = exp.before(now)
+            val timeLeft = exp.time - now.time
+            response["timeToExpiry"] = if (timeLeft > 0) {
+                "${timeLeft / 1000 / 60} minutes"
+            } else {
+                "Expired ${-timeLeft / 1000 / 60} minutes ago"
+            }
+        }
+
+        return ResponseEntity.ok(response)
     }
 
     @PostMapping("/register")
+    @Operation(summary = "Register new user", description = "Registers a new user with the provided details")
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "User registered successfully", content = [Content(schema = Schema(implementation = UserDto::class))]),
+            ApiResponse(responseCode = "400", description = "Invalid input or email already exists", content = [Content()])
+        ]
+    )
     fun registerUser(@RequestBody request: RegisterUserRequest): ResponseEntity<UserDto> {
         val user = authService.registerUser(request)
         return ResponseEntity.ok(user)
     }
 
     @PostMapping("/change-password")
+    @Operation(summary = "Change password", description = "Changes the password for the authenticated user")
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "Password changed successfully"),
+            ApiResponse(responseCode = "400", description = "Invalid old password or input", content = [Content()])
+        ]
+    )
     fun changePassword(@Valid @RequestBody request: ChangePasswordRequest): ResponseEntity<String> {
         authService.changePassword(request)
         return ResponseEntity.ok("Password changed successfully")

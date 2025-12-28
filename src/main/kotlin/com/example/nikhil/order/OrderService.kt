@@ -1,6 +1,5 @@
 package com.example.nikhil.order
 
-import com.example.nikhil.cart.entity.CartItem
 import com.example.nikhil.cart.entity.CartStatus
 import com.example.nikhil.cart.repository.CartRepository
 import com.example.nikhil.common.kafka.event.OrderAction
@@ -90,6 +89,17 @@ class OrderService(
             order.addItem(orderItem)
         }
 
+        // Calculate financials: subtotal, tax, shipping, total
+        val subtotal = calculateSubtotalFromOrderItems(order.items)
+        val tax = calculateTax(subtotal)
+        val shipping = calculateShipping(subtotal)
+        val total = subtotal.add(tax).add(shipping).setScale(2, RoundingMode.HALF_UP)
+
+        order.subtotal = subtotal.setScale(2, RoundingMode.HALF_UP)
+        order.tax = tax
+        order.shippingCost = shipping
+        order.totalAmount = total
+
         // Save order
         val savedOrder = orderRepository.save(order)
         logger.info("Order created: ${savedOrder.orderNumber} for user: ${user.id}")
@@ -98,7 +108,7 @@ class OrderService(
         cart.status = CartStatus.CHECKOUT
         cartRepository.save(cart)
 
-        // Publish order created event
+        // Publish order created event (include totalAmount)
         publishOrderEvent(savedOrder, "ORDER_CREATED", OrderAction.CREATED)
 
         return orderMapper.toDto(savedOrder)
@@ -143,7 +153,7 @@ class OrderService(
      * Get order by ID
      */
     fun getOrderById(orderId: Long): OrderDto {
-        logger.debug("Fetching order: $orderId")
+        logger.debug("Fetching order: {}", orderId)
         val order = orderRepository.findByIdWithItems(orderId)
             .orElseThrow { NoSuchElementException("Order not found with id: $orderId") }
         return orderMapper.toDto(order)
@@ -153,7 +163,7 @@ class OrderService(
      * Get order by order number
      */
     fun getOrderByNumber(orderNumber: String): OrderDto {
-        logger.debug("Fetching order by number: $orderNumber")
+        logger.debug("Fetching order by number: {}", orderNumber)
         val order = orderRepository.findByOrderNumberWithItems(orderNumber)
             .orElseThrow { NoSuchElementException("Order not found with number: $orderNumber") }
         return orderMapper.toDto(order)
@@ -163,7 +173,7 @@ class OrderService(
      * Get order history for a user
      */
     fun getOrderHistory(userId: Long, page: Int = 0, size: Int = 10): OrderHistoryResponse {
-        logger.debug("Fetching order history for user: $userId, page: $page, size: $size")
+        logger.debug("Fetching order history for user: {} page: {} size: {}", userId, page, size)
 
         val pageable = PageRequest.of(page, size)
         val ordersPage = orderRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
@@ -183,7 +193,7 @@ class OrderService(
      * Get all orders for a user (no pagination)
      */
     fun getAllOrdersForUser(userId: Long): List<OrderSummaryDto> {
-        logger.debug("Fetching all orders for user: $userId")
+        logger.debug("Fetching all orders for user: {}", userId)
         val orders = orderRepository.findByUserIdOrderByCreatedAtDesc(userId)
         return orderMapper.toSummaryDtoList(orders)
     }
@@ -192,7 +202,7 @@ class OrderService(
      * Get orders by status for a user
      */
     fun getOrdersByStatus(userId: Long, status: OrderStatus): List<OrderSummaryDto> {
-        logger.debug("Fetching orders for user: $userId with status: $status")
+        logger.debug("Fetching orders for user: {} with status: {}", userId, status)
         val orders = orderRepository.findByUserIdAndStatusOrderByCreatedAtDesc(userId, status)
         return orderMapper.toSummaryDtoList(orders)
     }
@@ -238,7 +248,7 @@ class OrderService(
      */
     @Transactional
     fun cancelOrder(orderId: Long, reason: String? = null): OrderDto {
-        logger.info("Cancelling order: $orderId")
+        logger.info("Cancelling order: $orderId, reason: $reason")
 
         val order = orderRepository.findByIdWithItems(orderId)
             .orElseThrow { NoSuchElementException("Order not found with id: $orderId") }
@@ -267,11 +277,11 @@ class OrderService(
         return "ORD-$timestamp-$random"
     }
 
-    private fun calculateSubtotal(items: List<CartItem>): BigDecimal {
-        return items.sumOf { item ->
-            val price = item.product?.price ?: BigDecimal.ZERO
-            price.multiply(BigDecimal(item.quantity))
-        }
+    /**
+     * Helper used to calculate subtotal from order items (uses item.subtotal which was calculated earlier)
+     */
+    private fun calculateSubtotalFromOrderItems(items: List<OrderItem>): BigDecimal {
+        return items.fold(BigDecimal.ZERO) { acc, item -> acc + item.subtotal }
     }
 
     private fun calculateShipping(subtotal: BigDecimal): BigDecimal {
@@ -292,15 +302,16 @@ class OrderService(
                     orderId = order.id,
                     orderNumber = order.orderNumber,
                     action = action,
-                    totalAmount = null,
+                    totalAmount = order.totalAmount,
                     details = mapOf(
                         "orderNumber" to (order.orderNumber ?: ""),
                         "status" to order.status.name,
-                        "itemCount" to order.items.size
+                        "itemCount" to order.items.size,
+                        "totalAmount" to order.totalAmount.toString()
                     )
                 )
             )
-            logger.debug("Published $eventType event for order: ${order.orderNumber}")
+            logger.debug("Published $eventType event for order: {}", order.orderNumber)
         } catch (e: Exception) {
             logger.warn("Failed to publish $eventType event: ${e.message}")
         }
